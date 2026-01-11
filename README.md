@@ -32,7 +32,7 @@ The use of this framework for attacking targets without prior mutual consent is 
 * [x] Desktop Head (Rust Async implementation)
 * [x] Command & Tasking System (JSON Parser)
 * [x] Persistent Task Database (Task Queuing per ID)
-* [x] **Remote Shell Execution (Desktop Head)**
+* [x] Remote Shell Execution (Desktop Head)
 * [ ] Persistence Module (Systemd/Registry)
 
 ---
@@ -66,7 +66,7 @@ A high-performance, lightweight agent built with **Rust**.
 
 * **Features:**
 * **Runtime:** Powered by `Tokio` for non-blocking async operations.
-* **Telemetry:** Automatically gathers Hostname and OS details via `sysinfo`.
+* **Telemetry:** Automatically gathers Hostname, OS, and RAM details via `sysinfo`.
 * **Command Parser:** Interprets C2 instructions for desktop-side alerts.
 * **Shell Executor:** Executes arbitrary commands via `sh -c` and returns output.
 * **Path:** `/hydra_desktop/`
@@ -115,13 +115,5 @@ cargo run
 
 > **Instruction [2026-01-11]:** All `.pem` (certificates) and `.db` (database) files must remain untracked. Never commit keys or active databases to the repository.
 
-**Current Git Protection:**
-
-```bash
-# Ensure local DB is not indexed
-git rm --cached hydra_c2/hydra_heads.db
-
-
-```
 
 ---
