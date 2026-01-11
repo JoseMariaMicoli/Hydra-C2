@@ -8,6 +8,7 @@
            __/ |                              
           |___/                               
 
+
 ```
 
 **Project Hydra-C2 is a multi-headed C2 (Command and Control) framework.**
@@ -30,7 +31,7 @@ The use of this framework for attacking targets without prior mutual consent is 
 * [x] Heartbeat Loop (60s intervals with WakeLock)
 * [x] Desktop Head (Rust Async implementation)
 * [x] Command & Tasking System (JSON Parser)
-* [ ] Persistent Task Database (Task Queuing per ID)
+* [x] **Persistent Task Database (Task Queuing per ID)**
 * [ ] Persistence Module (Systemd/Registry)
 
 ---
@@ -45,8 +46,6 @@ The brain of the operation, built with **Python & FastAPI**.
 * Dynamic ASCII Splash Screen on initialization.
 * Automated SQLite database tracking for all "Heads."
 * **Command Dispatcher:** Sends platform-specific JSON payloads (vibrate/msg).
-
-
 * **Path:** `/hydra_c2/`
 
 ### 📱 Android Head
@@ -57,8 +56,6 @@ A stealthy background service built with **Kotlin**.
 * **Persistence:** Foreground Service with a `NotificationChannel`.
 * **WakeLock:** Prevents CPU deep sleep during heartbeat cycles.
 * **Action Execution:** Parses JSON to trigger hardware actions (e.g., Vibrator).
-
-
 * **Path:** `/hydra_android/`
 
 ### 💻 Desktop Head (The "Great Talon")
@@ -69,8 +66,6 @@ A high-performance, lightweight agent built with **Rust**.
 * **Runtime:** Powered by `Tokio` for non-blocking async operations.
 * **Telemetry:** Automatically gathers Hostname and OS details via `sysinfo`.
 * **Command Parser:** Interprets C2 instructions for desktop-side alerts.
-
-
 * **Path:** `/hydra_desktop/`
 
 ---
@@ -85,6 +80,7 @@ Ensure your `.pem` files are in the server directory (they are ignored by git).
 cd hydra_c2
 python main.py
 
+
 ```
 
 ### 2. Android Client Setup
@@ -96,6 +92,7 @@ python main.py
 ./gradlew installDebug
 adb shell am start-foreground-service com.hydra.client/.HydraService
 
+
 ```
 
 ### 3. Desktop Client Setup
@@ -106,6 +103,7 @@ Compile and run the Rust binary:
 cd hydra_desktop
 cargo run
 
+
 ```
 
 ---
@@ -114,33 +112,4 @@ cargo run
 
 > **Instruction [2026-01-11]:** All `.pem` (certificates) and `.db` (database) files must remain untracked. Never commit keys or active databases to the repository.
 
-**Current Git Protection:**
-
-```bash
-# Ensure local DB is not indexed
-git rm --cached hydra_c2/hydra_heads.db
-
-```
-
----
-
-```
-
-### 💾 Ready to Commit
-Since you are ready to push to the repo, here is your recommended commit workflow:
-
-```bash
-# Stage the code and the new README
-git add .
-
-# Double check that no .pem or .db files are staged
-git status
-
-# Commit the Command Parser milestone
-git commit -m "feat: implement cross-platform command parser (Android Vibrate / Desktop Msg)"
-
-# Push to your remote
-git push origin main
-
-```
 ---

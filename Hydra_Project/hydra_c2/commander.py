@@ -17,5 +17,7 @@ def send_command(client_id, action, params):
 
 # Example usage:
 if __name__ == "__main__":
-    target = "ANDROID-HEAD-01"
-    send_command(target, "vibrate", {"duration": 2000})
+    #target = "ANDROID-HEAD-01"
+    #send_command(target, "vibrate", {"duration": 2000})
+    target = "DESKTOP-HEAD-ALPHA"
+    send_command(target, "msg", {"content": "System maintenance required."})

