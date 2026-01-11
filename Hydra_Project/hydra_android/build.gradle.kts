@@ -1,8 +1,7 @@
-buildscript {
-    repositories { google(); mavenCentral() }
-    dependencies {
-        classpath("com.android.tools.build:gradle:8.2.0")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.20")
-    }
+// Top-level build file
+plugins {
+    // AGP 9.1.0-alpha03 is the current standard for Gradle 9.2
+    id("com.android.application") version "9.1.0-alpha03" apply false
+    // Kotlin 2.2.10 is required by AGP 9.0+
+    id("org.jetbrains.kotlin.android") version "2.2.10" apply false
 }
-allprojects { repositories { google(); mavenCentral() } }

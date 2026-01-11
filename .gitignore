@@ -1,19 +1,34 @@
-# Security - Never commit keys or certs
+# === Security & Certificates ===
+# Never commit keys or certs
 hydra_c2/*.pem
+hydra_android/*.pem
+*.pem
+*.crt
+*.key
 
-# Python
+# === Python / FastAPI ===
 **/__pycache__/
 **/.venv/
 *.pyc
 hydra_c2/*.db
+*.db-journal
 
-# Rust
+# === Rust ===
 **/target/
 **/*.rs.bk
 
-# Android
+# === Android (Gradle) ===
 **/.gradle/
 **/build/
 **/local.properties
 **/.idea/
 *.iml
+*.bundle
+*.apk
+
+# === OS Specific ===
+.DS_Store
+Thumbs.db
+
+# Ignore the specific C2 database
+Hydra_Project/hydra_c2/hydra_heads.db

