@@ -1,3 +1,19 @@
-hydra.crt
-hydra.key
+# Security - Never commit keys or certs
+hydra_c2/*.pem
 
+# Python
+**/__pycache__/
+**/.venv/
+*.pyc
+hydra_c2/*.db
+
+# Rust
+**/target/
+**/*.rs.bk
+
+# Android
+**/.gradle/
+**/build/
+**/local.properties
+**/.idea/
+*.iml
