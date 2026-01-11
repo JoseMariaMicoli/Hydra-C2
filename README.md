@@ -1,7 +1,4 @@
 ```markdown
-# Project Hydra-C2
-
-```text
    _    _           _              _____ ___  
   | |  | |         | |            / ____|__ \ 
   | |__| |_   _  __| |_ __ __ _  | |       ) |
@@ -32,7 +29,8 @@ The use of this framework for attacking targets without prior mutual consent is 
 * [x] Verified 200 OK Handshake
 * [x] Heartbeat Loop (60s intervals with WakeLock)
 * [x] Desktop Head (Rust Async implementation)
-* [ ] Command & Tasking System (JSON Payloads)
+* [x] Command & Tasking System (JSON Parser)
+* [ ] Persistent Task Database (Task Queuing per ID)
 * [ ] Persistence Module (Systemd/Registry)
 
 ---
@@ -46,7 +44,7 @@ The brain of the operation, built with **Python & FastAPI**.
 * **Features:**
 * Dynamic ASCII Splash Screen on initialization.
 * Automated SQLite database tracking for all "Heads."
-* Asynchronous request handling for multiple concurrent connections.
+* **Command Dispatcher:** Sends platform-specific JSON payloads (vibrate/msg).
 
 
 * **Path:** `/hydra_c2/`
@@ -56,9 +54,9 @@ The brain of the operation, built with **Python & FastAPI**.
 A stealthy background service built with **Kotlin**.
 
 * **Features:**
-* **Persistence:** Foreground Service with a `NotificationChannel` to prevent OS killing.
-* **WakeLock:** Prevents CPU deep sleep during 60s heartbeat cycles.
-* **Security:** Implements SSL-bypass for development handshakes.
+* **Persistence:** Foreground Service with a `NotificationChannel`.
+* **WakeLock:** Prevents CPU deep sleep during heartbeat cycles.
+* **Action Execution:** Parses JSON to trigger hardware actions (e.g., Vibrator).
 
 
 * **Path:** `/hydra_android/`
@@ -70,7 +68,7 @@ A high-performance, lightweight agent built with **Rust**.
 * **Features:**
 * **Runtime:** Powered by `Tokio` for non-blocking async operations.
 * **Telemetry:** Automatically gathers Hostname and OS details via `sysinfo`.
-* **Efficiency:** Minimal memory footprint (< 5MB RAM).
+* **Command Parser:** Interprets C2 instructions for desktop-side alerts.
 
 
 * **Path:** `/hydra_desktop/`
@@ -124,4 +122,25 @@ git rm --cached hydra_c2/hydra_heads.db
 
 ```
 
+---
+
+```
+
+### 💾 Ready to Commit
+Since you are ready to push to the repo, here is your recommended commit workflow:
+
+```bash
+# Stage the code and the new README
+git add .
+
+# Double check that no .pem or .db files are staged
+git status
+
+# Commit the Command Parser milestone
+git commit -m "feat: implement cross-platform command parser (Android Vibrate / Desktop Msg)"
+
+# Push to your remote
+git push origin main
+
+```
 ---

