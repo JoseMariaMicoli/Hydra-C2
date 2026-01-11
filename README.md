@@ -31,7 +31,8 @@ The use of this framework for attacking targets without prior mutual consent is 
 * [x] Heartbeat Loop (60s intervals with WakeLock)
 * [x] Desktop Head (Rust Async implementation)
 * [x] Command & Tasking System (JSON Parser)
-* [x] **Persistent Task Database (Task Queuing per ID)**
+* [x] Persistent Task Database (Task Queuing per ID)
+* [x] **Remote Shell Execution (Desktop Head)**
 * [ ] Persistence Module (Systemd/Registry)
 
 ---
@@ -46,6 +47,7 @@ The brain of the operation, built with **Python & FastAPI**.
 * Dynamic ASCII Splash Screen on initialization.
 * Automated SQLite database tracking for all "Heads."
 * **Command Dispatcher:** Sends platform-specific JSON payloads (vibrate/msg).
+* **Output Collector:** Receives and logs remote shell results via `/report`.
 * **Path:** `/hydra_c2/`
 
 ### 📱 Android Head
@@ -66,6 +68,7 @@ A high-performance, lightweight agent built with **Rust**.
 * **Runtime:** Powered by `Tokio` for non-blocking async operations.
 * **Telemetry:** Automatically gathers Hostname and OS details via `sysinfo`.
 * **Command Parser:** Interprets C2 instructions for desktop-side alerts.
+* **Shell Executor:** Executes arbitrary commands via `sh -c` and returns output.
 * **Path:** `/hydra_desktop/`
 
 ---
@@ -111,5 +114,14 @@ cargo run
 ## 🔒 Security Policy & Persistence
 
 > **Instruction [2026-01-11]:** All `.pem` (certificates) and `.db` (database) files must remain untracked. Never commit keys or active databases to the repository.
+
+**Current Git Protection:**
+
+```bash
+# Ensure local DB is not indexed
+git rm --cached hydra_c2/hydra_heads.db
+
+
+```
 
 ---
