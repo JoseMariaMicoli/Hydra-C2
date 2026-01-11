@@ -4,9 +4,26 @@ from contextlib import asynccontextmanager
 from db import init_db, register_client
 import uvicorn
 
+def print_banner():
+    banner = """
+   _    _           _              _____ ___  
+  | |  | |         | |            / ____|__ \ 
+  | |__| |_   _  __| |_ __ __ _  | |       ) |
+  |  __  | | | |/ _` | '__/ _` | | |      / / 
+  | |  | | |_| | (_| | | | (_| | | |____ / /_ 
+  |_|  |_|\__, |\__,_|_|  \__,_|  \_____|____|
+           __/ |                              
+          |___/                               
+
+  >> Project Hydra-C2: Multi-headed Framework
+  >> Status: Online | SSL: Enabled
+    """
+    print(banner)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Initializes the SQLite database on startup
+    print_banner()
     await init_db()
     yield
 
