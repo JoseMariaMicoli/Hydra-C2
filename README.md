@@ -83,7 +83,6 @@ Ensure your `.pem` files are in the server directory (they are ignored by git).
 cd hydra_c2
 python main.py
 
-
 ```
 
 ### 2. Android Client Setup
@@ -95,7 +94,6 @@ python main.py
 ./gradlew installDebug
 adb shell am start-foreground-service com.hydra.client/.HydraService
 
-
 ```
 
 ### 3. Desktop Client Setup
@@ -106,6 +104,36 @@ Compile and run the Rust binary:
 cd hydra_desktop
 cargo run
 
+```
+
+---
+
+## 🕹 Usage (The Commander)
+
+The `commander.py` script is used to inject tasks into the Hydra database for specific clients.
+
+### Desktop Commands
+
+**Remote Shell Execution:**
+
+```bash
+python commander.py DESKTOP-HEAD-ALPHA shell "ls -la /home"
+
+```
+
+**Display Alert Message:**
+
+```bash
+python commander.py DESKTOP-HEAD-ALPHA msg "System Update Required"
+
+```
+
+### Android Commands
+
+**Trigger Vibration:**
+
+```bash
+python commander.py ANDROID-HEAD-01 vibrate 2000
 
 ```
 
@@ -114,6 +142,5 @@ cargo run
 ## 🔒 Security Policy & Persistence
 
 > **Instruction [2026-01-11]:** All `.pem` (certificates) and `.db` (database) files must remain untracked. Never commit keys or active databases to the repository.
-
 
 ---
