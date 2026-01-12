@@ -38,7 +38,7 @@ The use of this framework for attacking targets without prior mutual consent is 
 * [x] File Infiltration & Exfiltration (Download/Upload)
 * [x] Live GPS Exfiltration (Single-ping & Automated Tracking Loop)
 * [x] **Audio Intelligence (Background Recording & Exfiltration - Desktop & Android)**
-* [/] Remote Shell command execution (Android Head)
+* [ ] Remote Shell command execution (Android Head) In Progress
 * [ ] Persistence Module (Systemd/Registry)
 * [ ] Remote Control/Screen (TeamViewer style)
 * [ ] Camera Snapshot (Mobile/Webcam)
