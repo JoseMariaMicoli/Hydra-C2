@@ -12,7 +12,7 @@
 ```
 ---
 
-**Project Hydra-C2 is a multi-headed C2 (Command and Control) framework.**
+### **Project Hydra-C2 is a multi-headed C2 (Command and Control) framework.**
 
 ---
 
@@ -23,7 +23,7 @@ The use of this framework for attacking targets without prior mutual consent is 
 
 ---
 
-## 🚀 Project Status: In Development
+## 🚀 Project Status: In Development (Update: 2026-01-12)
 
 * [x] Secure SSL-Pinned Handshake (Android/FastAPI)
 * [x] FastAPI Backend with SQLite Integration
@@ -37,7 +37,7 @@ The use of this framework for attacking targets without prior mutual consent is 
 * [x] Multi-Platform Telemetry (RAM, OS, Battery, Network SSID)
 * [x] File Infiltration & Exfiltration (Download/Upload)
 * [x] Live GPS Exfiltration (Single-ping & Automated Tracking Loop)
-* [x] Audio Intelligence (Remote Background Recording & Exfiltration)
+* [x] Audio Intelligence (Background Recording & Exfiltration for Android & Desktop)
 * [ ] Persistence Module (Systemd/Registry)
 
 ---
@@ -48,7 +48,6 @@ The use of this framework for attacking targets without prior mutual consent is 
 
 The brain of the operation, built with **Python & FastAPI**.
 
-* **Features:**
 * **Dynamic Intelligence:** Platform-aware logging (Mobile vs Desktop).
 * **Automated Tracking:** SQLite database tracking for all "Heads."
 * **Command Dispatcher:** Sends platform-specific JSON payloads.
@@ -60,7 +59,6 @@ The brain of the operation, built with **Python & FastAPI**.
 
 A stealthy background service built with **Kotlin**.
 
-* **Features:**
 * **Geospatial Intelligence**: High-accuracy coordinate retrieval and Automated Live Tracking (30s intervals).
 * **Audio Intelligence:** Remote-triggered background microphone recording (MPEG4-AAC) with auto-exfiltration.
 * **Network Intelligence:** Reports active SSID or Mobile Carrier name (Requires Location).
@@ -76,6 +74,7 @@ A high-performance, lightweight agent built with **Rust**.
 
 * **Features:**
 * **Runtime:** Powered by `Tokio` for non-blocking async operations.
+* **Audio Intelligence:** Persistent background microphone capture via `cpal` with automated WAV exfiltration.
 * **Telemetry:** Gathers Hostname, OS version, and RAM details via `sysinfo`.
 * **Shell Executor:** Executes arbitrary commands via `sh -c` and returns output.
 * **File Transfer**: Built-in support for multipart file uploads and binary downloads.
@@ -115,20 +114,25 @@ cargo run
 
 Use `commander.py` to inject tasks into the database.
 
-**Audio Surveillance (Android):**
+**Audio Surveillance (Android & Desktop):**
 
 ```bash
-python commander.py ANDROID-HEAD-01 record_start    # Starts MIC recording
-python commander.py ANDROID-HEAD-01 record_stop     # Stops and uploads .m4a
+# Starts MIC recording (Persistent Buffer)
+python commander.py DESKTOP-HEAD-ALPHA record_start
+python commander.py ANDROID-HEAD-01 record_start
+
+# Stops, encodes, and exfiltrates audio file
+python commander.py DESKTOP-HEAD-ALPHA record_stop
+python commander.py ANDROID-HEAD-01 record_stop
 
 ```
 
 **Get GPS Location (Android):**
 
 ```bash
-python commander.py ANDROID-HEAD-01 location        # Single GPS ping
-python commander.py ANDROID-HEAD-01 location_start  # Start 30s tracking loop
-python commander.py ANDROID-HEAD-01 location_stop   # Stop tracking loop
+python commander.py ANDROID-HEAD-01 location          # Single GPS ping
+python commander.py ANDROID-HEAD-01 location_start    # Start 30s tracking loop
+python commander.py ANDROID-HEAD-01 location_stop     # Stop tracking loop
 
 ```
 
@@ -182,6 +186,19 @@ On machines with AMD Vega/Integrated graphics, use **SwiftShader (CPU)** to avoi
 
 ```
 
+### 🎙 Audio "SUSPENDED" Fix (Desktop Head)
+
+If Desktop recording returns 0 samples on Arch (Pipewire/Wireplumber), the hardware node is likely suspended. Force it active:
+
+```bash
+# Unmute and wake the analog input source
+pactl set-source-mute alsa_input.pci-0000_04_00.6.analog-stereo 0
+
+# Check status (Must be IDLE or RUNNING to capture data)
+pactl list short sources
+
+```
+
 ### 🔐 Permission & Physical Device Bypass (Android 11+)
 
 To ensure hardware access (Mic/GPS/SSID) and prevent the system from killing the service:
@@ -216,6 +233,6 @@ adb emu geo fix -31.4167 -64.1833
 
 ## 🔒 Security Policy & Persistence
 
-> **Instruction [2026-01-11]:** All `.pem` (certificates) and `.db` (database) files must remain untracked. Never commit keys or active databases to the repository.
+> **Instruction [2026-01-12]:** All `.pem` (certificates) and `.db` (database) files must remain untracked. Never commit keys or active databases to the repository.
 
 ---

