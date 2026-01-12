@@ -36,7 +36,7 @@ The use of this framework for attacking targets without prior mutual consent is 
 * [x] Remote Shell Execution (Desktop Head)
 * [x] Multi-Platform Telemetry (RAM, OS, Battery, Network SSID)
 * [x] File Infiltration & Exfiltration (Download/Upload)
-* [x] **Live GPS Exfiltration (Fused Location Provider)**
+* [x] Live GPS Exfiltration (Single-ping & Automated Tracking Loop)
 * [ ] Persistence Module (Systemd/Registry)
 
 ---
@@ -60,7 +60,7 @@ The brain of the operation, built with **Python & FastAPI**.
 A stealthy background service built with **Kotlin**.
 
 * **Features:**
-* **Geospatial Intelligence:** High-accuracy coordinate retrieval (Lat, Lon, Alt).
+* **Geospatial Intelligence**: High-accuracy coordinate retrieval and Automated Live Tracking (30s intervals).
 * **Network Intelligence:** Reports active SSID or Mobile Carrier name.
 * **Vitals Reporting:** Real-time Battery percentage and OS version tracking.
 * **Persistence:** Foreground Service with a `NotificationChannel` and `WakeLock`.
@@ -116,7 +116,9 @@ Use `commander.py` to inject tasks into the database.
 **Get GPS Location (Android):**
 
 ```bash
-python commander.py ANDROID-HEAD-01 location
+python commander.py ANDROID-HEAD-01 location          # Single GPS ping
+python commander.py ANDROID-HEAD-01 location_start    # Start 30s tracking loop
+python commander.py ANDROID-HEAD-01 location_stop     # Stop tracking loop
 
 ```
 

