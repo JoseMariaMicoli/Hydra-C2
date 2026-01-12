@@ -23,7 +23,7 @@ The use of this framework for attacking targets without prior mutual consent is 
 
 ---
 
-## 🚀 Project Status: In Development (Update: 2026-01-12)
+### 🚀 Project Status: In Development (Update: 2026-01-12)
 
 * [x] Secure SSL-Pinned Handshake (Android/FastAPI)
 * [x] FastAPI Backend with SQLite Integration
@@ -37,8 +37,14 @@ The use of this framework for attacking targets without prior mutual consent is 
 * [x] Multi-Platform Telemetry (RAM, OS, Battery, Network SSID)
 * [x] File Infiltration & Exfiltration (Download/Upload)
 * [x] Live GPS Exfiltration (Single-ping & Automated Tracking Loop)
-* [x] Audio Intelligence (Background Recording & Exfiltration for Android & Desktop)
+* [x] **Audio Intelligence (Background Recording & Exfiltration - Desktop & Android)**
+* [/] Remote Shell command execution (Android Head)
 * [ ] Persistence Module (Systemd/Registry)
+* [ ] Remote Control/Screen (TeamViewer style)
+* [ ] Camera Snapshot (Mobile/Webcam)
+* [ ] Keylogging (Desktop Head)
+* [ ] Contact/SMS Extraction (Android)
+* [ ] Reverse Proxy / SOCKS5 Tunneling
 
 ---
 
