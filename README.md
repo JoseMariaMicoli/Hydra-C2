@@ -40,11 +40,13 @@ The use of this framework for attacking targets without prior mutual consent is 
 * [x] Audio Intelligence (Background Recording & Exfiltration - Desktop & Android)
 * [x] Interactive Operator Console (v1.6 CLI with Session Targeting)
 * [x] Intelligent Command Specification Manual (usage <cmd>)
-* [ ] Remote Shell command execution (Android Head) In Progress
+* [ ] Remote Shell command execution (Android Head) IN PROGRESS
 * [ ] Persistence Module (Systemd/Registry)
 * [ ] Remote Control/Screen (TeamViewer style)
 * [ ] Camera Snapshot (Mobile/Webcam)
 * [x] Keylogging (Desktop Head)
+* [ ] Android Accessibility Keylogger (Bypassing TCL v3.0) - IN PROGRESS
+* [ ] Android Head Mode (Full Hardware/FS Access) - IN PROGRESS
 * [ ] Contact/SMS Extraction (Android)
 * [ ] Reverse Proxy / SOCKS5 Tunneling
 
@@ -110,6 +112,21 @@ python -m uvicorn main:app --host 0.0.0.0 --port 8443 --ssl-keyfile ./key.pem --
 2. Update the `BASE_URL` to your Arch Host IP (e.g., `https://192.168.1.50:8443`).
 3. Deploy to emulator or physical device.
 
+### 🔐 Automated Deployment (Android Head Mode)
+
+The `deploy.sh` script automates the bypass of Android 11+ security restrictions.
+
+**Features of the Script:**
+* **Permission Granting:** Automatically grants Camera, Mic, GPS, and Storage via ADB.
+* **AppOps Bypass:** Forces `MANAGE_EXTERNAL_STORAGE` and `START_FOREGROUND` permissions.
+* **Accessibility Handshake:** Forwards the correct service path to `Settings.Secure` to force-bind the Keylogger sensor.
+* **Persistence:** Whitelists the app from Battery Optimization (Doze Mode).
+
+**Execution:**
+```bash
+chmod +x deploy.sh
+./deploy.sh
+```
 ### 3. Desktop Client Setup
 
 ```bash
@@ -117,27 +134,6 @@ cd hydra_desktop
 cargo run
 
 ```
-
----
-
-Here are the specific updates for your README. I have overhauled the **Usage** section to reflect the new v1.6 Interactive CLI and updated the **Project Status** to show our recent progress.
-
-### 📝 README.md Updates
-
-Replace the existing **Project Status** and **🕹 Usage** sections with the following:
-
----
-
-### 🚀 Project Status: In Development (Update: 2026-01-15)
-
-* [x] **Interactive Operator Console (v1.6 CLI with Session Targeting)**
-* [x] **Intelligent Command Specification Manual (`usage <cmd>`)**
-* [x] Secure SSL-Pinned Handshake (Android/FastAPI)
-* [x] **Audio Intelligence (Background Recording & Exfiltration - Desktop & Android)**
-* [x] Live GPS Exfiltration (Single-ping & Automated Tracking Loop)
-* [x] Keylogging (Desktop Head - Event Driven)
-* [ ] **Android Accessibility Keylogger (Next Phase)**
-* [ ] Remote Shell command execution (Android Head) - *In Progress*
 
 ---
 
