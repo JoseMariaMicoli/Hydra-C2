@@ -42,7 +42,7 @@ The use of this framework for attacking targets without prior mutual consent is 
 * [ ] Persistence Module (Systemd/Registry)
 * [ ] Remote Control/Screen (TeamViewer style)
 * [ ] Camera Snapshot (Mobile/Webcam)
-* [ ] Keylogging (Desktop Head)
+* [x] Keylogging (Desktop Head)
 * [ ] Contact/SMS Extraction (Android)
 * [ ] Reverse Proxy / SOCKS5 Tunneling
 
@@ -59,6 +59,7 @@ The brain of the operation, built with **Python & FastAPI**.
 * **Command Dispatcher:** Sends platform-specific JSON payloads.
 * **Output Collector:** Receives and logs remote shell results, GPS data, and Audio binary data.
 * **File Manager**: Dedicated endpoints for /upload (Exfiltration) and /download (Looting).
+* **Keylog Processor:** Automated timestamping and persistent appending for incoming keystroke data.
 * **Path:** `/hydra_c2/`
 
 ### 📱 Android Head
@@ -84,6 +85,7 @@ A high-performance, lightweight agent built with **Rust**.
 * **Telemetry:** Gathers Hostname, OS version, and RAM details via `sysinfo`.
 * **Shell Executor:** Executes arbitrary commands via `sh -c` and returns output.
 * **File Transfer**: Built-in support for multipart file uploads and binary downloads.
+* **Keylogging:** Event-driven X11/Windows/macOS keystroke capture via `rdev` with buffered exfiltration.
 * **Path:** `/hydra_desktop/`
 
 ---
@@ -119,6 +121,17 @@ cargo run
 ## 🕹 Usage (The Commander)
 
 Use `commander.py` to inject tasks into the database.
+
+**Keylogging (Desktop):**
+
+```bash
+# Starts the keylogger (Captures to buffer)
+python commander.py DESKTOP-HEAD-ALPHA keylog_start
+```
+```bash
+# Stops the keylogger and clears buffer
+python commander.py DESKTOP-HEAD-ALPHA keylog_stop
+```
 
 **Audio Surveillance (Android & Desktop):**
 

