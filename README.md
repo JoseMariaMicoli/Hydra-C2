@@ -239,7 +239,7 @@ adb emu geo fix -31.4167 -64.1833
 
 ---
 
-### 🛡️ Project Hydra: Tactical Framework Mapping 
+### 🛡️ Project Hydra: Tactical TTP MAPPING (**MITRE ATT&CK®**)
 
 *A platform-aware C2 and automated exfiltration suite mapped to the adversary lifecycle.*
 
