@@ -239,6 +239,29 @@ adb emu geo fix -31.4167 -64.1833
 
 ---
 
+### 🛡️ Project Hydra: Tactical Framework Mapping
+
+| Block | Capability | MITRE Tactic | MITRE ID | OWASP API '23 | Defensive Context |
+| --- | --- | --- | --- | --- | --- |
+| **I. INFIL** | **Hydra C2 Discovery** | Reconnaissance | **T1595.002** | API9: Inventory | Detection of rogue C2 listener |
+|  | Android Hardware Access | Discovery | **T1082** | - | System Information Discovery |
+|  | Telemetry (SSID/Carrier) | Discovery | **T1040** | - | Network Sniffing / Discovery |
+| **II. EXPLOIT** | **Remote Shell Execution** | Execution | **T1059** | API5: BFLA | Command and Scripting Interpreter |
+|  | Accessibility Keylogger | Credential Access | **T1056.001** | - | Input Capture: Keylogging |
+|  | SMS/Contact Extraction | Collection | **T1637** | - | Data from Local System |
+|  | Audio Intelligence (Mic) | Collection | **T1123** | - | Audio Capture |
+| **III. EXPAND** | **Persistence (Systemd)** | Persistence | **T1543.002** | - | Create or Modify System Process |
+|  | Android "Ghost Service" | Persistence | **T1137** | - | Office Application Startup (Mobile) |
+|  | Reverse Proxy / SOCKS5 | Command & Control | **T1090** | API7: SSRF | Proxy: Internal Pivot |
+| **IV. OBFUSC** | **SSL-Pinned Handshake** | Defense Evasion | **T1573.002** | - | Encrypted Channel: Asymmetric |
+|  | WakeLock/Heartbeat Loop | Defense Evasion | **T1622** | - | Debugger Evasion (Timing-based) |
+|  | Platform-Aware Logging | Defense Evasion | **T1027** | - | Obfuscated Files or Information |
+| **V. COMPL** | **File Exfiltration (Loot)** | Exfiltration | **T1041** | - | Exfiltration Over C2 Channel |
+|  | Live GPS Tracking | Exfiltration | **T1020** | - | Automated Exfiltration |
+|  | JSON Command Dispatcher | Command & Control | **T1071.001** | - | Application Layer Protocol: Web |
+
+---
+
 ## 🔒 Security Policy & Persistence
 
 > **Instruction [2026-01-12]:** All `.pem` (certificates) and `.db` (database) files must remain untracked. Never commit keys or active databases to the repository.
