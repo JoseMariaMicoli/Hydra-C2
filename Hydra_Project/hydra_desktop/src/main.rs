@@ -1,7 +1,6 @@
-
 /*
 Copyright (c) 2026 José María Micoli
-Licensed under AGPLv3
+Licensed under {'license_type': 'AGPLv3'}
 
 You may:
 ✔ Study

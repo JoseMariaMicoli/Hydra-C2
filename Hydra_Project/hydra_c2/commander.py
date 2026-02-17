@@ -1,7 +1,6 @@
-
-/*
+"""
 Copyright (c) 2026 José María Micoli
-Licensed under AGPLv3
+Licensed under {'license_type': 'AGPLv3'}
 
 You may:
 ✔ Study
@@ -11,7 +10,7 @@ You may:
 You may NOT:
 ✘ Offer as a commercial service
 ✘ Sell derived competing products
-*/
+"""
 
 import sqlite3
 import json
