@@ -1,3 +1,12 @@
+## License Update Notice
+
+Starting from version 1.0.1 this project will transition to AGPLv3.
+
+Reason:
+To allow sustainable development, support, and long-term maintenance while keeping the project open and transparent.
+
+Previous versions remain under the original license.
+
 ```markdown
    _    _           _              _____ ___  
   | |  | |         | |            / ____|__ \ 
